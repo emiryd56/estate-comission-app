@@ -1,9 +1,11 @@
 # Estate Commission App
 
+> Languages: **English** · [Türkçe](./README.tr.md)
+
 A full-stack application for managing real-estate transactions through the
 agreement → earnest money → title deed → completed pipeline and, on
 completion, automatically computing how the commission is split between
-the agency and the involved agents.
+the agency and the involved consultants.
 
 The project is built as a monorepo with two independently runnable packages:
 
@@ -69,7 +71,7 @@ estate-comission-app/
 │   │   ├── app.module.ts     # Throttler, Mongoose, modules wiring
 │   │   └── main.ts           # helmet, CORS, Swagger, ValidationPipe
 │   ├── scripts/
-│   │   ├── seed.ts           # Creates admin + a few agents
+│   │   ├── seed.ts           # Creates admin + a few consultants
 │   │   └── promote-admin.ts  # Promotes an existing user to admin
 │   ├── src/assets/fonts/     # DejaVu TTFs used by pdfkit
 │   └── test/                 # e2e tests
@@ -120,7 +122,7 @@ $EDITOR backend/.env
 # 3. (Optional but recommended) create frontend env file
 cp frontend/.env.example frontend/.env
 
-# 4. Seed the default admin + a few agents
+# 4. Seed the default admin + a few consultants
 npm run seed
 
 # 5. Start backend (:3001) and frontend (:3000) side by side
@@ -173,12 +175,18 @@ npm run seed
 
 Default credentials (override through env vars listed above):
 
-| Role  | Email              | Password   |
-| ----- | ------------------ | ---------- |
-| admin | `admin@firma.com`  | `admin123` |
-| agent | `ayse@firma.com`   | `agent123` |
-| agent | `mehmet@firma.com` | `agent123` |
-| agent | `zeynep@firma.com` | `agent123` |
+| Role       | Email              | Password   |
+| ---------- | ------------------ | ---------- |
+| admin      | `admin@firma.com`  | `admin123` |
+| consultant | `ayse@firma.com`   | `agent123` |
+| consultant | `mehmet@firma.com` | `agent123` |
+| consultant | `zeynep@firma.com` | `agent123` |
+
+> **Terminology note.** Throughout this documentation and the Turkish UI we
+> use "consultant" / "danışman" to refer to the non-admin user role. The
+> codebase internally calls this role `UserRole.AGENT` (value `'agent'`)
+> because "real-estate agent" is the conventional English business term;
+> both names refer to the same thing.
 
 To promote an existing user to admin instead of re-seeding:
 
@@ -259,13 +267,13 @@ route except `POST /auth/login` and `GET /health` requires an
 | ------ | ----------------------------- | -------------- | ----------------------------------------------------------- |
 | POST   | `/auth/login`                 | public         | Returns `{ accessToken, user }`. Rate-limited (10/min).     |
 | GET    | `/auth/me`                    | any auth       | Returns the decoded token's `{ userId, email, role }`.      |
-| POST   | `/users`                      | admin          | Creates a user (agent or admin).                            |
-| GET    | `/users`                      | admin, agent   | Lists users (used by agent pickers).                        |
-| GET    | `/transactions`               | admin, agent   | Paginated list; supports `search`, `stage`, price/date/agent filters. |
-| POST   | `/transactions`               | admin, agent   | Agents may only list themselves as listing or selling agent.|
-| GET    | `/transactions/:id`           | admin, agent   | Agents only see their own transactions.                     |
-| PATCH  | `/transactions/:id/stage`     | admin, agent   | Atomic forward-only transition; 409 on concurrent change.   |
-| GET    | `/transactions/:id/export`    | admin, agent   | Streams a styled PDF report.                                |
+| POST   | `/users`                      | admin               | Creates a user (consultant or admin).                       |
+| GET    | `/users`                      | admin, consultant   | Lists users (used by consultant pickers).                   |
+| GET    | `/transactions`               | admin, consultant   | Paginated list; supports `search`, `stage`, price/date/consultant filters. |
+| POST   | `/transactions`               | admin, consultant   | Consultants may only list themselves as `listingAgent` or `sellingAgent`. |
+| GET    | `/transactions/:id`           | admin, consultant   | Consultants only see their own transactions.                |
+| PATCH  | `/transactions/:id/stage`     | admin, consultant   | Atomic forward-only transition; 409 on concurrent change.   |
+| GET    | `/transactions/:id/export`    | admin, consultant   | Streams a styled PDF report.                                |
 | GET    | `/health`                     | public         | Terminus health-check (Mongo ping).                         |
 | GET    | `/docs`                       | public         | Swagger UI.                                                 |
 
@@ -294,7 +302,7 @@ curl -s http://localhost:3001/transactions \
 | `maxTotalFee` | number ≥0| Upper bound of `totalFee`.                                              |
 | `startDate`   | ISO date | `createdAt >= startDate`.                                               |
 | `endDate`     | ISO date | `createdAt <= endDate 23:59:59`.                                        |
-| `agentId`     | ObjectId | **Admin only.** Restricts to transactions where the user is either agent.|
+| `agentId`     | ObjectId | **Admin only.** Restricts to transactions where the selected user is either the listing or the selling consultant. |
 
 ---
 
@@ -308,13 +316,13 @@ curl -s http://localhost:3001/transactions \
   stage filter, collapsible "Advanced Filters" panel, pagination, and
   per-row quick actions (Advance Stage, View Detail).
 - **New transaction (`/transactions/new`)** — Searchable selects for listing
-  and selling agents; agents must pick themselves on at least one side
-  (enforced server-side).
+  and selling consultants; consultants must pick themselves on at least one
+  side (enforced server-side).
 - **Transaction detail (`/transactions/[id]`)** — Summary card, vertical
   timeline derived from `stageHistory`, dynamic commission breakdown table,
   and a one-click **Download PDF** button that calls `/transactions/:id/export`.
-- **User management (`/users`, admin only)** — Create agents/admins and list
-  existing users; name, email, role and avatar.
+- **User management (`/users`, admin only)** — Create consultants/admins and
+  list existing users; name, email, role and avatar.
 - **PDF export** — Multi-section A4 report with agency branding, stage
   badge, key/value table, stage history, and financial breakdown. Uses
   DejaVu fonts bundled as Nest assets to render Turkish characters.
@@ -380,9 +388,9 @@ per IP to mitigate brute force. Wait ~60 seconds and retry.
 Another writer (tab, device) beat you to it. Reload the transaction and
 try again — the server guarantees a single winner per transition.
 
-**`403 Forbidden` when an agent creates a transaction.**
-Agents may only create transactions where they are either the listing or
-selling agent. Pick yourself on at least one side.
+**`403 Forbidden` when a consultant creates a transaction.**
+Consultants may only create transactions where they are either the listing
+or selling consultant. Pick yourself on at least one side.
 
 **PDF export contains question marks instead of Turkish characters.**
 The DejaVu fonts under `backend/src/assets/fonts/` weren't copied to
@@ -416,7 +424,7 @@ Top-level (root) scripts:
 | `npm test`             | Backend unit tests (Jest).                                   |
 | `npm run test:cov`     | Backend coverage report.                                     |
 | `npm run lint`         | Backend ESLint with `--fix`.                                 |
-| `npm run seed`         | Seeds admin + 3 agents (idempotent).                         |
+| `npm run seed`         | Seeds admin + 3 consultants (idempotent).                    |
 
 Backend-local scripts (from `backend/`) of interest:
 

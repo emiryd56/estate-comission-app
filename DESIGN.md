@@ -1,5 +1,7 @@
 # Design & Architecture
 
+> Languages: **English** · [Türkçe](./DESIGN.tr.md)
+
 This document captures the rationale behind the architectural and
 implementation choices in **estate-comission-app**. It is intended to be
 read alongside the source code: every section answers "why is it like
@@ -171,7 +173,11 @@ Design decisions worth calling out:
   use its presence as the signal for "completed deal".
 - **`User` carries a `role` enum (`admin` | `agent`).** A flat role field
   keeps the RBAC logic simple — we do not need multi-role or permissions
-  yet, and adding complexity preemptively would be speculative.
+  yet, and adding complexity preemptively would be speculative. Throughout
+  this document and the UI we call the non-admin role "consultant"
+  ("danışman" in Turkish); in the codebase it is still represented by
+  `UserRole.AGENT` (value `'agent'`), the conventional real-estate term in
+  English.
 
 ---
 
@@ -179,23 +185,23 @@ Design decisions worth calling out:
 
 Implemented by [`backend/src/transactions/utils/commission-calculator.ts`](./backend/src/transactions/utils/commission-calculator.ts).
 
-Given a `totalFee` (`T`) and two agent ids (`L`, `S`) the pure function
+Given a `totalFee` (`T`) and two consultant ids (`L`, `S`) the pure function
 returns:
 
-| Scenario                     | Agency cut   | Listing agent cut | Selling agent cut |
-| ---------------------------- | ------------ | ----------------- | ----------------- |
-| `L === S` (same agent)       | `0.5 × T`    | `0.5 × T`         | `0`               |
-| `L !== S` (different agents) | `0.5 × T`    | `0.25 × T`        | `0.25 × T`        |
+| Scenario                         | Agency cut   | Listing consultant cut | Selling consultant cut |
+| -------------------------------- | ------------ | ---------------------- | ---------------------- |
+| `L === S` (same consultant)      | `0.5 × T`    | `0.5 × T`              | `0`                    |
+| `L !== S` (different consultants)| `0.5 × T`    | `0.25 × T`             | `0.25 × T`             |
 
 Why this shape:
 
 - The **agency always keeps 50%** of the gross commission. The ratio
   lives in a named constant (`AGENCY_SHARE_RATIO`) so updates are a
   one-line change plus tests.
-- The remaining half is the **agent pool**, split evenly when two
-  different agents were involved. If one person both listed and sold the
-  property, they get the entire pool; the selling-agent cut becomes `0`
-  rather than duplicating the amount.
+- The remaining half is the **consultant pool**, split evenly when two
+  different consultants were involved. If one person both listed and sold
+  the property, they get the entire pool; the selling-consultant cut
+  becomes `0` rather than duplicating the amount.
 - **The function is pure.** It does not touch the database, take a
   document, or throw for business-logic reasons other than invalid input
   (`totalFee < 0`, `NaN`). That is deliberate: unit tests are trivial and
@@ -330,14 +336,14 @@ layer never touches raw secrets.
 - `RolesGuard` reads the metadata, compares it against the authenticated
   user's role, and throws `ForbiddenException` when mismatched.
 - The Transactions controller declares `@Roles(ADMIN, AGENT)` at the
-  class level: both roles reach every endpoint. The stricter "agent
-  must be involved" check is implemented **inside the service**
+  class level: both roles reach every endpoint. The stricter
+  "consultant must be involved" check is implemented **inside the service**
   (`assertAgentInvolvement`) because it depends on request payload, not
   just the role name. That keeps guards concerned with identity, services
   concerned with business rules.
 - The Users controller uses the same mechanism to keep `POST /users`
-  admin-only while opening `GET /users` to both roles so agents can pick
-  colleagues when creating transactions.
+  admin-only while opening `GET /users` to both roles so consultants can
+  pick colleagues when creating transactions.
 
 ### JWT hygiene on the client
 
@@ -363,8 +369,8 @@ a usable session?"** is one call.
   path for pagination.
 - **Status codes.** `201` on create, `200` on stage patch, `409` on
   concurrent conflict, `401` on missing/invalid token, `403` on role
-  mismatch, `404` on "not found or not yours" (agent scope is applied by
-  the filter, so inaccessible documents look identical to nonexistent
+  mismatch, `404` on "not found or not yours" (consultant scope is applied
+  by the filter, so inaccessible documents look identical to nonexistent
   ones to the caller).
 - **Stage update as PATCH `/transactions/:id/stage`.** The resource we
   are mutating is the stage field of the transaction, so dedicating a
@@ -464,7 +470,7 @@ Three Pinia stores, each with a single responsibility:
   `logout`. Cookie lifecycle lives here so it is the only thing that
   writes `token`.
 - **`user`** — holds the roster of users the UI needs (pickers, admin
-  page); exposes `agents` (agent-only subset) and `getById`. Owns
+  page); exposes `agents` (a consultant-only subset) and `getById`. Owns
   `fetchUsers`, `createUser`.
 - **`transaction`** — holds the current page of transactions plus all
   filter state (`search`, `stage`, `advancedFilters`), pagination, and
@@ -495,8 +501,8 @@ Why Pinia + dedicated stores instead of component-local `ref`s:
 - **`SearchableSelect` component.** Native `<select>` becomes painful
   with more than ~20 options and cannot be searched. A custom combobox
   with keyboard navigation, search, and clearability scales to dozens
-  of agents and keeps the form feeling fast. It is reused for the
-  dashboard's agent filter and the new-transaction form.
+  of consultants and keeps the form feeling fast. It is reused for the
+  dashboard's consultant filter and the new-transaction form.
 - **Stage badges with semantic colors** (slate / amber / sky / emerald)
   echo between table rows, detail page, and PDF, so users learn the
   mapping in one place and can rely on it everywhere.
@@ -519,8 +525,8 @@ Why Pinia + dedicated stores instead of component-local `ref`s:
 
 `GET /transactions/:id/export` returns a PDF built with `pdfkit`:
 
-1. The service loads the transaction with populated agents and returns a
-   hydrated Mongoose document.
+1. The service loads the transaction with populated consultants and
+   returns a hydrated Mongoose document.
 2. `buildTransactionPdf` registers embedded DejaVu fonts (Sans + Sans
    Bold) so Turkish diacritics render correctly and consistently across
    platforms.
