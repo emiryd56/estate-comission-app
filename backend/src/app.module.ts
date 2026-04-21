@@ -1,6 +1,6 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { MongooseModule, MongooseModuleOptions } from '@nestjs/mongoose';
 import {
   ThrottlerGuard,
@@ -10,23 +10,24 @@ import {
 import { TerminusModule } from '@nestjs/terminus';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
+import { validateEnv } from './config/env.validation';
 import { TransactionsModule } from './transactions/transactions.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateEnv,
+      cache: true,
+    }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService): MongooseModuleOptions => {
-        const uri = configService.get<string>('MONGODB_URI');
-        if (!uri) {
-          throw new Error(
-            'MONGODB_URI environment variable is not defined. Set it in .env',
-          );
-        }
-        return { uri };
-      },
+      useFactory: (configService: ConfigService): MongooseModuleOptions => ({
+        uri: configService.getOrThrow<string>('MONGODB_URI'),
+      }),
     }),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
@@ -51,6 +52,14 @@ import { UsersModule } from './users/users.module';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+  }
+}

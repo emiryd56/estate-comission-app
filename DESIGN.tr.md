@@ -267,6 +267,20 @@ Bu filtre `findAllPaginated`, `findOne` ve `updateStage` dahil **tüm okuma ve y
 
 Bu yaklaşım "row-level security" örüntüsünün MongoDB karşılığıdır ve izolasyonu **controller seviyesinin altında**, yani unutulması en zor katmanda sağlar.
 
+### 7.1 Destekleyici Index'ler
+
+Erişim filtresi ve sıralama **her** okumada uygulandığı için şema hangi index'lerin bu sorguları desteklediğini açıkça tanımlar:
+
+```typescript
+// backend/src/transactions/schemas/transaction.schema.ts
+TransactionSchema.index({ createdAt: -1 });
+TransactionSchema.index({ stage: 1, createdAt: -1 });
+TransactionSchema.index({ listingAgent: 1, createdAt: -1 });
+TransactionSchema.index({ sellingAgent: 1, createdAt: -1 });
+```
+
+Tüm compound index'ler aynı örüntüyü izler: yüksek seçiciliğe sahip yordam (`stage`, `listingAgent`, `sellingAgent`) başta, sıralama anahtarı (`createdAt: -1`) sonda. Bu sayede RBAC filtreli ve her zaman `.sort({ createdAt: -1 })` ile biten dashboard sorgusu, koleksiyon büyüse bile in-memory sıralamaya gerek kalmadan tek bir index tarama ile karşılanır.
+
 ---
 
 ## 8. Frontend Mimarisi: Pinia, Debounce ve Sayfalamalı Tablo
@@ -322,10 +336,12 @@ interface PaginatedResult<T> {
   total: number;
   page: number;
   totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 }
 ```
 
-Frontend bu sözleşmeyi tablo altında "Sayfa X / Y" ve "Önceki / Sonraki" butonlarına çevirir. Tüm filtreler (arama, aşama, fiyat aralığı, tarih aralığı, danışman) aynı `fetchTransactions` action'ı üzerinden çalışır; query string inşası store'un sorumluluğundadır. Bu, API çağrısının bileşenler arasında tekrar etmesini engeller.
+`hasNextPage` / `hasPrevPage` backend tarafında hesaplanır; böylece frontend'in "Önceki/Sonraki" butonlarını çizerken `page < totalPages && totalPages > 0` aritmetiğini tekrar etmesi gerekmez, yalnızca flag'i okur. Frontend bu sözleşmeyi tablo altında "Sayfa X / Y" ve "Önceki / Sonraki" butonlarına çevirir. Tüm filtreler (arama, aşama, fiyat aralığı, tarih aralığı, danışman) aynı `fetchTransactions` action'ı üzerinden çalışır; query string inşası store'un sorumluluğundadır. Bu, API çağrısının bileşenler arasında tekrar etmesini engeller.
 
 ### 8.4 `useApi` Composable'ı ve Token Akışı
 
@@ -370,6 +386,49 @@ Uygulama, standart OWASP Top 10 risklerine karşı aşağıdaki önlemleri uygul
 | Regex DoS | Arama filtresinde kullanıcı girdisindeki regex özel karakterleri (`.*+?^${}()|[]\`) `buildSearchFilter` içinde escape edilir. |
 | CORS | `CORS_ORIGIN` ortam değişkeniyle kontrol edilir; kimlik bilgili istek yalnızca beyaz listedeki origin'lerden kabul edilir. |
 | JWT | Secret environment değişkeninden okunur; `JWT_SECRET` yoksa uygulama başlangıçta fail-fast eder. |
+| İç hata sızıntısı | `AllExceptionsFilter`, bilinmeyen tüm istisnaları generic `500 InternalServerError`'a dönüştürür ve gerçek stack trace'i yalnızca sunucu log'una yazar. |
+| Hatalı konfigürasyon | `validateEnv` başlangıçta çalışır; zorunlu değişkenlerden biri (`MONGODB_URI`, `JWT_SECRET`) eksik veya geçersizse boot aşamasını reddeder. |
+
+### 9.1 Environment Doğrulaması — Başlangıçta Fail-Fast
+
+Environment değişkenlerini her istekte veya her provider'ın içinde lazy kontrol etmek yerine, gerekli konfigürasyon `class-validator` dekoratörlü bir sınıf olarak tanımlanır ve `ConfigModule.forRoot({ validate })` hook'una bağlanır:
+
+```typescript
+// backend/src/config/env.validation.ts
+class EnvironmentVariables {
+  @IsString() @IsNotEmpty() MONGODB_URI!: string;
+  @IsString() @IsNotEmpty() JWT_SECRET!: string;
+  @IsOptional() @IsInt() @Min(1) PORT?: number;
+  // ...
+}
+```
+
+Eksik bir `JWT_SECRET`, ilk `/auth/login` çağrısında kafa karıştırıcı bir `500` üretmek yerine uygulamayı anında başlatmadan düşürür ve tek ekranlık net bir hata operatörü `.env.example`'a yönlendirir. Fail-fast, prod'da hayalet bir hatayı kovalamaktan her zaman ucuzdur.
+
+### 9.2 Global Exception Filter — Tek Tip Hata Gövdesi
+
+Backend'den dışarı çıkan her hata `AllExceptionsFilter`'ın içinden geçer ve kararlı, tek tip bir yanıt gövdesi üretir:
+
+```json
+{ "statusCode": 404, "message": "Transaction X not found", "error": "NotFoundException", "path": "/transactions/X", "timestamp": "2026-04-21T21:09:18.763Z" }
+```
+
+Filter'ın üç sorumluluğu vardır:
+
+1. **`HttpException` türevlerini olduğu gibi geçir** — status ve mesajları zaten client'a uygun.
+2. **Mongoose hatalarını dönüştür** — `CastError` ve `ValidationError`, insan tarafından okunabilir bir mesajla `400 Bad Request`'e map edilir.
+3. **Bilinmeyeni izole et** — geri kalan her şey generic bir gövde ile `500 InternalServerError`'a dönüşürken orijinal stack trace sadece sunucu log'una yazılır. İçsel detaylar (DB driver mesajları, stack frame'ler, kütüphane iç yapısı) client'a sızmaz.
+
+### 9.3 İstek Loglama
+
+İnce bir `RequestLoggerMiddleware` her HTTP yanıtı için tek satırlık özet basar:
+
+```
+LOG  [HTTP] GET /health -> 200 (6.7ms)
+WARN [HTTP] GET /transactions -> 401 (1.4ms)
+```
+
+Log seviyesi status'ü takip eder: `2xx → LOG`, `4xx → WARN`, `5xx → ERROR`. Gövde ve header log'lanmaz; böylece token, parola veya kişisel bilgi log aggregator'a sızmaz.
 
 ---
 

@@ -89,11 +89,14 @@ export class TransactionsService {
       this.transactionModel.countDocuments(filter).exec(),
     ]);
 
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
     return {
       data,
       total,
       page,
-      totalPages: total === 0 ? 0 : Math.ceil(total / limit),
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1 && totalPages > 0,
     };
   }
 

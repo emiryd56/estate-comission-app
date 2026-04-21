@@ -54,3 +54,12 @@ export class Transaction {
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
+
+// Listings and dashboards always sort by createdAt desc; compounding each
+// high-selectivity field with createdAt lets MongoDB serve the RBAC-filtered,
+// stage-filtered, and agent-filtered dashboards using a single index scan
+// without an in-memory sort.
+TransactionSchema.index({ createdAt: -1 });
+TransactionSchema.index({ stage: 1, createdAt: -1 });
+TransactionSchema.index({ listingAgent: 1, createdAt: -1 });
+TransactionSchema.index({ sellingAgent: 1, createdAt: -1 });

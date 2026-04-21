@@ -269,6 +269,20 @@ The filter is applied automatically to **every read and write query**, including
 
 This is the MongoDB equivalent of the "row-level security" pattern and enforces isolation **below the controller layer**, where it is hardest to forget.
 
+### 7.1 Supporting Indexes
+
+Because the access filter and sort order are applied on **every** read, the schema is explicit about which indexes support them:
+
+```typescript
+// backend/src/transactions/schemas/transaction.schema.ts
+TransactionSchema.index({ createdAt: -1 });
+TransactionSchema.index({ stage: 1, createdAt: -1 });
+TransactionSchema.index({ listingAgent: 1, createdAt: -1 });
+TransactionSchema.index({ sellingAgent: 1, createdAt: -1 });
+```
+
+Each compound index follows the same pattern: a high-selectivity predicate first (`stage`, `listingAgent`, `sellingAgent`) and the sort key last (`createdAt: -1`). This lets MongoDB serve the RBAC-filtered dashboard — which always ends with `.sort({ createdAt: -1 })` — using a single index scan without an in-memory sort, even when the collection grows.
+
 ---
 
 ## 8. Frontend Architecture: Pinia, Debounce, and Paginated Table
@@ -324,10 +338,12 @@ interface PaginatedResult<T> {
   total: number;
   page: number;
   totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 }
 ```
 
-The frontend translates this contract into "Page X / Y" labels and Previous/Next buttons below the table. Every filter (search, stage, fee range, date range, agent) flows through the same `fetchTransactions` action; building the query string is the store's responsibility. That prevents the API call from being duplicated across components.
+`hasNextPage` / `hasPrevPage` are computed server-side so the frontend never has to repeat the `page < totalPages && totalPages > 0` arithmetic; the Previous/Next buttons simply read the flag. The frontend translates this contract into "Page X / Y" labels and Previous/Next buttons below the table. Every filter (search, stage, fee range, date range, agent) flows through the same `fetchTransactions` action; building the query string is the store's responsibility. That prevents the API call from being duplicated across components.
 
 ### 8.4 The `useApi` Composable and Token Flow
 
@@ -372,6 +388,49 @@ The application mitigates the standard OWASP Top 10 risks with the following mea
 | Regex DoS | In the search filter, regex metacharacters from user input (`.*+?^${}()|[]\`) are escaped inside `buildSearchFilter`. |
 | CORS | Controlled through the `CORS_ORIGIN` environment variable; credentialed requests are accepted only from the allow-list. |
 | JWT | The secret is loaded from an environment variable; if `JWT_SECRET` is missing, the application fails fast at startup. |
+| Internal error leakage | `AllExceptionsFilter` converts unknown exceptions into a generic `500 InternalServerError` and logs the real stack trace server-side only. |
+| Misconfiguration | `validateEnv` runs at startup and rejects the boot if any required variable (`MONGODB_URI`, `JWT_SECRET`) is missing or malformed. |
+
+### 9.1 Environment Validation — Fail-Fast at Boot
+
+Rather than checking environment variables lazily (per request, inside each provider), the application declares its required configuration as a `class-validator`-annotated class and hooks it into `ConfigModule.forRoot({ validate })`:
+
+```typescript
+// backend/src/config/env.validation.ts
+class EnvironmentVariables {
+  @IsString() @IsNotEmpty() MONGODB_URI!: string;
+  @IsString() @IsNotEmpty() JWT_SECRET!: string;
+  @IsOptional() @IsInt() @Min(1) PORT?: number;
+  // ...
+}
+```
+
+A missing `JWT_SECRET` no longer triggers a confusing `500` on the first `/auth/login` call. The boot process fails immediately with a one-screen error that points the operator at `.env.example`. Fail-fast is cheaper than chasing a ghost error in production.
+
+### 9.2 Global Exception Filter — Uniform Error Shape
+
+Every error leaves the backend through `AllExceptionsFilter`, which produces a single stable response shape:
+
+```json
+{ "statusCode": 404, "message": "Transaction X not found", "error": "NotFoundException", "path": "/transactions/X", "timestamp": "2026-04-21T21:09:18.763Z" }
+```
+
+The filter has three responsibilities:
+
+1. **Pass through `HttpException` subclasses** — their status and message are already appropriate for the client.
+2. **Translate Mongoose errors** — `CastError` and `ValidationError` become `400 Bad Request` with a human-readable message.
+3. **Isolate the unknown** — anything else is converted to `500 InternalServerError` with a generic body, while the original stack trace is written to the server log. Internal details (DB driver messages, stack frames, library internals) never reach the client.
+
+### 9.3 Request Logging
+
+A thin `RequestLoggerMiddleware` prints one line per HTTP response:
+
+```
+LOG  [HTTP] GET /health -> 200 (6.7ms)
+WARN [HTTP] GET /transactions -> 401 (1.4ms)
+```
+
+The log level follows the status: `2xx → LOG`, `4xx → WARN`, `5xx → ERROR`. It emits no body and no headers, so no sensitive data (tokens, passwords, PII) leaks into log aggregation.
 
 ---
 
