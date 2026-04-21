@@ -379,11 +379,61 @@ The application mitigates the standard OWASP Top 10 risks with the following mea
 
 The testing strategy relies on the isolation principle described in Section 5. Because domain logic is concentrated in pure functions, the bulk of the test suite is written without touching infrastructure.
 
-- **`commission-calculator.spec.ts`** — verifies every edge case of the commission rule deterministically: the same-agent scenario, a zero fee, and floating-point division artefacts.
-- **`stage-transitions.spec.ts`** — validates allowed and forbidden transitions against the matrix.
-- **`transactions.service.spec.ts`** — exercises service-layer orchestration (correct filter application, `financialBreakdown` written only on the transition to `COMPLETED`) by mocking the Mongoose model.
+The suite is organized along the "test pyramid": a wide base of fast unit tests on pure functions, a mid-layer of service tests with mocked Mongoose models, and a thin top layer of end-to-end tests against a booted Nest application.
 
-This approach reinforces the wide base of the "test pyramid": many fast unit tests, fewer service tests, and optional e2e tests at the top.
+### 10.1 Unit Tests — Pure Functions
+
+**`backend/src/transactions/utils/commission-calculator.spec.ts`** — validates every branch of the commission rule deterministically, without any mocks or I/O.
+
+| Scenario | Test case | Intent |
+| --- | --- | --- |
+| Same listing & selling agent | `gives the full agent pool to the single agent` | With a 100,000 fee the single agent takes 50,000 and the selling cut is 0. |
+| Same listing & selling agent | `works when both parameters are different ObjectId instances with the same value` | `.equals()` is used instead of reference equality. |
+| Different agents | `splits the agent pool equally (25% / 25%)` | With a 100,000 fee both agents receive 25,000. |
+| Different agents | `honors the configured agency share ratio` | `companyCut` always equals `totalFee * AGENCY_SHARE_RATIO`. |
+| Edge cases | `returns all zeros when totalFee is 0` | A zero fee yields three zeroes. |
+| Edge cases | `returns all zeros when totalFee is 0 and agents are the same` | The same-agent branch does not inflate a zero fee. |
+| Edge cases | `throws when totalFee is negative` | Negative amounts fail fast with a clear message. |
+| Edge cases | `throws when totalFee is NaN` | `NaN` is rejected in the same guard. |
+
+**`backend/src/transactions/utils/stage-transitions.spec.ts`** — drives the transition matrix with table-driven `it.each` assertions.
+
+| Group | Coverage |
+| --- | --- |
+| `valid forward transitions` | `AGREEMENT → EARNEST_MONEY`, `EARNEST_MONEY → TITLE_DEED`, `TITLE_DEED → COMPLETED`. |
+| `skipping stages is forbidden` | `AGREEMENT → TITLE_DEED`, `AGREEMENT → COMPLETED`, `EARNEST_MONEY → COMPLETED`. |
+| `backward transitions are forbidden` | All six downward transitions among the four stages. |
+| `self transitions are forbidden` | `X → X` for every stage. |
+| `COMPLETED is a terminal state` | No transition is possible out of `COMPLETED`. |
+
+### 10.2 Service Tests — Mongoose Mocked
+
+**`backend/src/transactions/transactions.service.spec.ts`** — verifies orchestration, authorization, and the stage-machine contract by stubbing the Mongoose model with in-memory `jest` mocks.
+
+| Feature | Test case | Intent |
+| --- | --- | --- |
+| `create` | `inserts a transaction with an initial AGREEMENT stage history entry` | A new transaction starts in `AGREEMENT` and its first `stageHistory` entry is written by the creating user. |
+| `create` | `forbids agents from creating transactions where they are not involved` | An agent cannot create a transaction for two other agents (`ForbiddenException`). |
+| `create` | `allows agents that list themselves as the listing agent` | An agent may create a transaction in which they appear as `listingAgent`. |
+| `updateStage` | `throws NotFoundException when the transaction does not exist` | Missing id surfaces a 404. |
+| `updateStage` | `throws BadRequestException for invalid forward transitions` | `AGREEMENT → COMPLETED` is rejected before any write. |
+| `updateStage` | `throws BadRequestException when already in the requested stage` | A self-transition is rejected. |
+| `updateStage` | `persists the next stage and stage history on a valid transition` | The `$set` and `$push` payloads, and the filter that preconditions on the previous stage, are all correct. |
+| `updateStage` | `computes financialBreakdown when transitioning to COMPLETED` | 100,000 → `{ company: 50,000, listing: 25,000, selling: 25,000 }` is written atomically on the final transition. |
+| `updateStage` | `throws ConflictException when another writer changed the stage first` | The optimistic-concurrency check (see Section 6) maps a `null` result to HTTP 409. |
+| `findOne` access control | `applies an access filter for agents to prevent viewing foreign transactions` | Agent queries receive an `$or` filter (see Section 7). |
+| `findOne` access control | `does not restrict admins via an access filter` | Admin queries carry no `$or` filter. |
+
+### 10.3 End-to-End Tests
+
+**`backend/test/app.e2e-spec.ts`** — boots the full Nest app and asserts the HTTP contract.
+
+| Test case | Intent |
+| --- | --- |
+| `GET /health returns 200 when the DB is reachable` | The health probe returns an `x` status (200 when Mongo is up, 503 otherwise). |
+| `GET /transactions returns 401 without a token` | `JwtAuthGuard` blocks anonymous access at the edge. |
+
+Together, these layers cover the three responsibilities that cannot be checked by the type system alone: financial arithmetic, the state machine, and role-based access control.
 
 ---
 

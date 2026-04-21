@@ -377,11 +377,61 @@ Uygulama, standart OWASP Top 10 risklerine karşı aşağıdaki önlemleri uygul
 
 Test stratejisi, Bölüm 5'te açıklanan izolasyon ilkesine dayanır. Domain logic saf fonksiyonlarda toplandığından, testlerin büyük kısmı altyapı dokunmadan yazılabilir.
 
-- **`commission-calculator.spec.ts`** — Komisyon kuralının tüm kenar durumlarını deterministik olarak doğrular: aynı danışman senaryosu, sıfır ücret, ondalık bölünme hataları.
-- **`stage-transitions.spec.ts`** — İzin verilen ve yasak geçişleri matris üzerinden doğrular.
-- **`transactions.service.spec.ts`** — Servis seviyesinde orkestrasyonu (doğru filtrelerin uygulanması, `financialBreakdown`'un yalnızca `COMPLETED` geçişinde yazılması) Mongoose modelini mock'layarak test eder.
+Test paketi "test piramidi" biçiminde örgütlenmiştir: geniş tabanda saf fonksiyonları doğrulayan hızlı unit testler, orta katmanda Mongoose modeli mock'lanmış servis testleri, tepede ayağa kaldırılmış Nest uygulamasına atılan az sayıda uçtan uca (e2e) testler.
 
-Bu yaklaşım, "test piramidi"nin geniş tabanını güçlendirir: çok sayıda hızlı unit test, daha az sayıda servis testi, tepede opsiyonel e2e testler.
+### 10.1 Unit Testler — Saf Fonksiyonlar
+
+**`backend/src/transactions/utils/commission-calculator.spec.ts`** — komisyon kuralının her dalını mock ve I/O kullanmadan deterministik biçimde doğrular.
+
+| Senaryo | Test case | Amaç |
+| --- | --- | --- |
+| Aynı listeleme & satış danışmanı | `gives the full agent pool to the single agent` | 100.000 ücrette tek danışman 50.000 alır, satış payı 0. |
+| Aynı listeleme & satış danışmanı | `works when both parameters are different ObjectId instances with the same value` | Referans eşitliği yerine `.equals()` kullanıldığı doğrulanır. |
+| Farklı danışmanlar | `splits the agent pool equally (25% / 25%)` | 100.000 ücrette iki danışman da 25.000 alır. |
+| Farklı danışmanlar | `honors the configured agency share ratio` | `companyCut` her zaman `totalFee * AGENCY_SHARE_RATIO`'ya eşittir. |
+| Kenar durumlar | `returns all zeros when totalFee is 0` | Sıfır ücret üç alanı da sıfır döndürür. |
+| Kenar durumlar | `returns all zeros when totalFee is 0 and agents are the same` | Aynı danışman dalı sıfır ücreti şişirmez. |
+| Kenar durumlar | `throws when totalFee is negative` | Negatif değer, net bir hata mesajıyla fail-fast olur. |
+| Kenar durumlar | `throws when totalFee is NaN` | `NaN` aynı koruma ile reddedilir. |
+
+**`backend/src/transactions/utils/stage-transitions.spec.ts`** — geçiş matrisini `it.each` tablo tabanlı iddialarla zorlar.
+
+| Grup | Kapsam |
+| --- | --- |
+| `valid forward transitions` | `AGREEMENT → EARNEST_MONEY`, `EARNEST_MONEY → TITLE_DEED`, `TITLE_DEED → COMPLETED`. |
+| `skipping stages is forbidden` | `AGREEMENT → TITLE_DEED`, `AGREEMENT → COMPLETED`, `EARNEST_MONEY → COMPLETED`. |
+| `backward transitions are forbidden` | Dört aşama arasındaki altı geri geçişin tamamı. |
+| `self transitions are forbidden` | Her aşama için `X → X`. |
+| `COMPLETED is a terminal state` | `COMPLETED`'den hiçbir geçişe çıkılamaz. |
+
+### 10.2 Servis Testleri — Mongoose Mock'lanmış
+
+**`backend/src/transactions/transactions.service.spec.ts`** — orkestrasyonu, yetkilendirmeyi ve durum makinesi sözleşmesini, Mongoose modelini in-memory `jest` mock'larıyla değiştirerek doğrular.
+
+| Özellik | Test case | Amaç |
+| --- | --- | --- |
+| `create` | `inserts a transaction with an initial AGREEMENT stage history entry` | Yeni işlem `AGREEMENT` ile başlar ve ilk `stageHistory` kaydı oluşturan kullanıcı tarafından yazılır. |
+| `create` | `forbids agents from creating transactions where they are not involved` | Bir danışman, başka iki danışman adına işlem oluşturamaz (`ForbiddenException`). |
+| `create` | `allows agents that list themselves as the listing agent` | Danışman, kendisini `listingAgent` olarak gösterdiği işlemi oluşturabilir. |
+| `updateStage` | `throws NotFoundException when the transaction does not exist` | Eksik id 404 ile sonuçlanır. |
+| `updateStage` | `throws BadRequestException for invalid forward transitions` | `AGREEMENT → COMPLETED`, yazmaya geçmeden reddedilir. |
+| `updateStage` | `throws BadRequestException when already in the requested stage` | Aynı aşamaya geçiş reddedilir. |
+| `updateStage` | `persists the next stage and stage history on a valid transition` | `$set` ve `$push` gövdesi ile önceki aşamayı şart koşan filtre doğru şekilde üretilir. |
+| `updateStage` | `computes financialBreakdown when transitioning to COMPLETED` | 100.000 → `{ company: 50.000, listing: 25.000, selling: 25.000 }` finale geçişte atomik olarak yazılır. |
+| `updateStage` | `throws ConflictException when another writer changed the stage first` | Optimistic-concurrency kontrolü (bkz. Bölüm 6) `null` sonucu HTTP 409'a dönüştürür. |
+| `findOne` erişim kontrolü | `applies an access filter for agents to prevent viewing foreign transactions` | Danışman sorgusuna `$or` filtresi eklenir (bkz. Bölüm 7). |
+| `findOne` erişim kontrolü | `does not restrict admins via an access filter` | Admin sorgusunda `$or` filtresi yer almaz. |
+
+### 10.3 Uçtan Uca (E2E) Testler
+
+**`backend/test/app.e2e-spec.ts`** — tüm Nest uygulamasını ayağa kaldırır ve HTTP sözleşmesini doğrular.
+
+| Test case | Amaç |
+| --- | --- |
+| `GET /health returns 200 when the DB is reachable` | Sağlık probe'u; Mongo ayaktaysa 200, değilse 503 döner. |
+| `GET /transactions returns 401 without a token` | `JwtAuthGuard`, anonim erişimi sınırda engeller. |
+
+Bu üç katman birlikte, tip sisteminin tek başına garanti edemediği üç sorumluluğu kapsar: mali aritmetik, durum makinesi ve rol tabanlı erişim kontrolü.
 
 ---
 
