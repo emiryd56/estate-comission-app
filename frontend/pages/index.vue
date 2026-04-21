@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { TransactionStage } from '~/types'
 import type { Transaction } from '~/types'
-import { formatCurrency, getNextStage, STAGE_LABELS } from '~/utils/stage'
+import { formatCurrency, getNextStage, STAGE_LABELS, STAGE_ORDER } from '~/utils/stage'
+
+const SEARCH_DEBOUNCE_MS = 500
 
 const transactionStore = useTransactionStore()
+
+const searchInput = ref(transactionStore.search)
+const stageFilter = ref<TransactionStage | ''>(transactionStore.stage ?? '')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const isLoading = computed(() => transactionStore.loading)
 const errorMessage = computed(() => transactionStore.error)
@@ -12,6 +18,9 @@ const rows = computed(() => transactionStore.transactions)
 const totalPages = computed(() => transactionStore.totalPages)
 const currentPage = computed(() => transactionStore.page)
 const total = computed(() => transactionStore.total)
+const hasActiveFilters = computed(
+  () => transactionStore.search !== '' || transactionStore.stage !== null,
+)
 
 const pageStart = computed(() =>
   total.value === 0 ? 0 : (currentPage.value - 1) * transactionStore.limit + 1,
@@ -21,7 +30,31 @@ const pageEnd = computed(() =>
 )
 
 onMounted(async () => {
-  await transactionStore.fetchTransactions({ page: 1 })
+  await transactionStore.fetchTransactions({ resetPage: true })
+})
+
+watch(searchInput, (next) => {
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+  }
+  searchTimer = setTimeout(() => {
+    searchTimer = null
+    if (next === transactionStore.search) {
+      return
+    }
+    void transactionStore.fetchTransactions({
+      search: next,
+      resetPage: true,
+    })
+  }, SEARCH_DEBOUNCE_MS)
+})
+
+watch(stageFilter, (next) => {
+  const nextStage = next === '' ? undefined : next
+  void transactionStore.fetchTransactions({
+    stage: nextStage,
+    resetPage: true,
+  })
 })
 
 function stageBadgeClass(stage: TransactionStage): string {
@@ -49,8 +82,18 @@ async function advanceStage(transaction: Transaction): Promise<void> {
   try {
     await transactionStore.updateTransactionStage(transaction._id, next)
   } catch {
-    // error visible in banner
+    // error banner already reflects the state
   }
+}
+
+async function clearFilters(): Promise<void> {
+  searchInput.value = ''
+  stageFilter.value = ''
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+  await transactionStore.resetFilters()
 }
 </script>
 
@@ -72,6 +115,59 @@ async function advanceStage(transaction: Transaction): Promise<void> {
         + Yeni İşlem
       </NuxtLink>
     </header>
+
+    <div
+      class="mb-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end"
+    >
+      <div class="flex-1">
+        <label for="search" class="mb-1 block text-xs font-medium text-slate-600">
+          İşlem Ara
+        </label>
+        <div class="relative">
+          <svg
+            class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            id="search"
+            v-model="searchInput"
+            type="search"
+            placeholder="İşlem başlığına göre ara..."
+            class="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+          >
+        </div>
+      </div>
+
+      <div class="sm:w-56">
+        <label for="stage" class="mb-1 block text-xs font-medium text-slate-600">
+          Aşama Seç
+        </label>
+        <select
+          id="stage"
+          v-model="stageFilter"
+          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+        >
+          <option value="">Tüm aşamalar</option>
+          <option v-for="stage in STAGE_ORDER" :key="stage" :value="stage">
+            {{ STAGE_LABELS[stage] }}
+          </option>
+        </select>
+      </div>
+
+      <button
+        v-if="hasActiveFilters"
+        type="button"
+        class="h-9 self-end rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+        @click="clearFilters"
+      >
+        Temizle
+      </button>
+    </div>
 
     <div
       v-if="errorMessage"
@@ -112,7 +208,7 @@ async function advanceStage(transaction: Transaction): Promise<void> {
           </tr>
           <tr v-else-if="rows.length === 0">
             <td colspan="6" class="px-6 py-10 text-center text-sm text-slate-500">
-              Henüz işlem yok.
+              {{ hasActiveFilters ? 'Filtreye uyan işlem bulunamadı.' : 'Henüz işlem yok.' }}
             </td>
           </tr>
           <tr
@@ -122,9 +218,12 @@ async function advanceStage(transaction: Transaction): Promise<void> {
             class="transition-colors hover:bg-slate-50"
           >
             <td class="px-6 py-4">
-              <p class="text-sm font-semibold text-slate-900">
+              <NuxtLink
+                :to="`/transactions/${transaction._id}`"
+                class="text-sm font-semibold text-slate-900 hover:text-indigo-600"
+              >
                 {{ transaction.title }}
-              </p>
+              </NuxtLink>
             </td>
             <td class="px-6 py-4 text-sm text-slate-700">
               {{ transaction.listingAgent.name }}
@@ -144,22 +243,23 @@ async function advanceStage(transaction: Transaction): Promise<void> {
               </span>
             </td>
             <td class="px-6 py-4 text-right">
-              <button
-                v-if="transaction.stage !== TransactionStage.COMPLETED"
-                type="button"
-                :disabled="isLoading"
-                class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
-                @click="advanceStage(transaction)"
-              >
-                Sonraki Aşama
-              </button>
-              <NuxtLink
-                v-else
-                :to="`/transactions/${transaction._id}`"
-                class="text-xs font-medium text-indigo-600 hover:text-indigo-800"
-              >
-                Detay
-              </NuxtLink>
+              <div class="flex items-center justify-end gap-2">
+                <button
+                  v-if="transaction.stage !== TransactionStage.COMPLETED"
+                  type="button"
+                  :disabled="isLoading"
+                  class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+                  @click="advanceStage(transaction)"
+                >
+                  Sonraki Aşama
+                </button>
+                <NuxtLink
+                  :to="`/transactions/${transaction._id}`"
+                  class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100"
+                >
+                  Detay
+                </NuxtLink>
+              </div>
             </td>
           </tr>
         </tbody>

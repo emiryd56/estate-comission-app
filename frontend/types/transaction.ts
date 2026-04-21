@@ -13,6 +13,11 @@ export interface FinancialBreakdown {
   sellingAgentCut?: number
 }
 
+export interface StageHistoryEntry {
+  stage: TransactionStage
+  changedAt: string
+}
+
 export interface Transaction {
   _id: string
   title: string
@@ -21,6 +26,7 @@ export interface Transaction {
   listingAgent: PopulatedAgent
   sellingAgent: PopulatedAgent
   financialBreakdown?: FinancialBreakdown
+  stageHistory: StageHistoryEntry[]
   createdAt: string
   updatedAt: string
 }
@@ -34,4 +40,11 @@ export interface CreateTransactionPayload {
 
 export interface UpdateTransactionStagePayload {
   stage: TransactionStage
+}
+
+export interface TransactionQuery {
+  page?: number
+  limit?: number
+  search?: string
+  stage?: TransactionStage
 }

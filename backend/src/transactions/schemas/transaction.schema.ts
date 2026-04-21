@@ -6,6 +6,10 @@ import {
   FinancialBreakdown,
   FinancialBreakdownSchema,
 } from './financial-breakdown.schema';
+import {
+  StageHistoryEntry,
+  StageHistoryEntrySchema,
+} from './stage-history-entry.schema';
 
 export type TransactionDocument = HydratedDocument<Transaction>;
 
@@ -44,6 +48,9 @@ export class Transaction {
 
   @Prop({ type: FinancialBreakdownSchema, required: false })
   financialBreakdown?: FinancialBreakdown;
+
+  @Prop({ type: [StageHistoryEntrySchema], default: [] })
+  stageHistory!: StageHistoryEntry[];
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);

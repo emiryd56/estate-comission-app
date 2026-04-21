@@ -9,16 +9,17 @@ import { UsersService } from './users.service';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @Roles(UserRole.ADMIN)
   create(@Body() dto: CreateUserDto): Promise<UserDocument> {
     return this.usersService.create(dto);
   }
 
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
   findAll(): Promise<UserDocument[]> {
     return this.usersService.findAll();
   }

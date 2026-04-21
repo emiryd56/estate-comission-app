@@ -2,8 +2,8 @@ import { defineStore } from 'pinia'
 import type {
   CreateTransactionPayload,
   PaginatedResult,
-  PaginationQuery,
   Transaction,
+  TransactionQuery,
   TransactionStage,
   UpdateTransactionStagePayload,
 } from '~/types'
@@ -16,8 +16,14 @@ interface TransactionStoreState {
   page: number
   limit: number
   totalPages: number
+  search: string
+  stage: TransactionStage | null
   loading: boolean
   error: string | null
+}
+
+interface FetchOptions extends TransactionQuery {
+  resetPage?: boolean
 }
 
 export const useTransactionStore = defineStore('transactions', {
@@ -27,25 +33,41 @@ export const useTransactionStore = defineStore('transactions', {
     page: 1,
     limit: DEFAULT_LIMIT,
     totalPages: 0,
+    search: '',
+    stage: null,
     loading: false,
     error: null,
   }),
 
   actions: {
     async fetchTransactions(
-      query: PaginationQuery = {},
+      options: FetchOptions = {},
     ): Promise<PaginatedResult<Transaction>> {
       this.loading = true
       this.error = null
       try {
         const api = useApi()
-        const page = query.page ?? this.page
-        const limit = query.limit ?? this.limit
+
+        if (options.search !== undefined) {
+          this.search = options.search
+        }
+        if (options.stage !== undefined) {
+          this.stage = options.stage ?? null
+        }
+        const limit = options.limit ?? this.limit
+        const page = options.resetPage ? 1 : options.page ?? this.page
+
+        const query: Record<string, string | number> = { page, limit }
+        if (this.search.trim().length > 0) {
+          query.search = this.search.trim()
+        }
+        if (this.stage) {
+          query.stage = this.stage
+        }
+
         const response = await api<PaginatedResult<Transaction>>(
           '/transactions',
-          {
-            query: { page, limit },
-          },
+          { query },
         )
         this.transactions = response.data
         this.total = response.total
@@ -61,6 +83,11 @@ export const useTransactionStore = defineStore('transactions', {
       }
     },
 
+    async fetchOne(id: string): Promise<Transaction> {
+      const api = useApi()
+      return api<Transaction>(`/transactions/${id}`)
+    },
+
     async createTransaction(
       payload: CreateTransactionPayload,
     ): Promise<Transaction> {
@@ -72,7 +99,7 @@ export const useTransactionStore = defineStore('transactions', {
           method: 'POST',
           body: payload,
         })
-        await this.fetchTransactions({ page: 1 })
+        await this.fetchTransactions({ resetPage: true })
         return created
       } catch (err) {
         this.error = extractErrorMessage(err)
@@ -109,6 +136,12 @@ export const useTransactionStore = defineStore('transactions', {
 
     setPage(page: number): Promise<PaginatedResult<Transaction>> {
       return this.fetchTransactions({ page })
+    },
+
+    resetFilters(): Promise<PaginatedResult<Transaction>> {
+      this.search = ''
+      this.stage = null
+      return this.fetchTransactions({ resetPage: true })
     },
   },
 })

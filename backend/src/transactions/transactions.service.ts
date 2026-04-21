@@ -6,8 +6,6 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
-
-type MongoFilter = Record<string, unknown>;
 import { UserRole } from '../users/enums/user-role.enum';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
@@ -21,7 +19,10 @@ import {
 import { calculateCommission } from './utils/commission-calculator';
 import { canTransition } from './utils/stage-transitions';
 
+type MongoFilter = Record<string, unknown>;
+
 const AGENT_POPULATE_FIELDS = 'name email' as const;
+const SEARCH_REGEX_SPECIAL_CHARS = /[.*+?^${}()|[\]\\]/g;
 
 @Injectable()
 export class TransactionsService {
@@ -36,6 +37,9 @@ export class TransactionsService {
       totalFee: dto.totalFee,
       listingAgent: new Types.ObjectId(dto.listingAgent),
       sellingAgent: new Types.ObjectId(dto.sellingAgent),
+      stageHistory: [
+        { stage: TransactionStage.AGREEMENT, changedAt: new Date() },
+      ],
     });
   }
 
@@ -47,7 +51,11 @@ export class TransactionsService {
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
 
-    const filter = this.buildAccessFilter(user);
+    const filter: MongoFilter = {
+      ...this.buildAccessFilter(user),
+      ...this.buildSearchFilter(query.search),
+      ...this.buildStageFilter(query.stage),
+    };
 
     const [data, total] = await Promise.all([
       this.transactionModel
@@ -124,6 +132,7 @@ export class TransactionsService {
     }
 
     transaction.stage = nextStage;
+    transaction.stageHistory.push({ stage: nextStage, changedAt: new Date() });
 
     if (nextStage === TransactionStage.COMPLETED) {
       transaction.financialBreakdown = calculateCommission(
@@ -152,6 +161,22 @@ export class TransactionsService {
         { sellingAgent: userObjectId },
       ],
     };
+  }
+
+  private buildSearchFilter(search: string | undefined): MongoFilter {
+    if (!search || search.trim().length === 0) {
+      return {};
+    }
+    const escaped = search
+      .trim()
+      .replace(SEARCH_REGEX_SPECIAL_CHARS, '\\$&');
+    return { title: { $regex: escaped, $options: 'i' } };
+  }
+
+  private buildStageFilter(
+    stage: TransactionStage | undefined,
+  ): MongoFilter {
+    return stage ? { stage } : {};
   }
 
   private assertValidObjectId(id: string): void {
