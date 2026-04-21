@@ -6,6 +6,7 @@ import type {
   Transaction,
   TransactionQuery,
   TransactionStage,
+  TransactionStats,
   UpdateTransactionStagePayload,
 } from '~/types'
 
@@ -30,6 +31,8 @@ interface TransactionStoreState {
   advancedFilters: AdvancedFilters
   loading: boolean
   error: string | null
+  stats: TransactionStats | null
+  statsLoading: boolean
 }
 
 interface FetchOptions extends TransactionQuery {
@@ -49,6 +52,8 @@ export const useTransactionStore = defineStore('transactions', {
     advancedFilters: { ...EMPTY_ADVANCED_FILTERS },
     loading: false,
     error: null,
+    stats: null,
+    statsLoading: false,
   }),
 
   getters: {
@@ -183,12 +188,33 @@ export const useTransactionStore = defineStore('transactions', {
         this.transactions = this.transactions.map((t) =>
           t._id === id ? updated : t,
         )
+        // The dashboard figures depend on the full collection; invalidate so
+        // the next page that needs them refetches.
+        this.stats = null
         return updated
       } catch (err) {
         this.error = extractErrorMessage(err)
         throw err
       } finally {
         this.loading = false
+      }
+    },
+
+    async fetchStats(options: { force?: boolean } = {}): Promise<TransactionStats> {
+      if (this.stats && !options.force) {
+        return this.stats
+      }
+      this.statsLoading = true
+      try {
+        const api = useApi()
+        const response = await api<TransactionStats>('/transactions/stats')
+        this.stats = response
+        return response
+      } catch (err) {
+        this.error = extractErrorMessage(err)
+        throw err
+      } finally {
+        this.statsLoading = false
       }
     },
 

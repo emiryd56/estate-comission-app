@@ -14,6 +14,7 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const exportLoading = ref(false)
 const transitionLoading = ref(false)
+const stageDialogOpen = ref(false)
 
 const transactionId = computed(() => {
   const id = route.params.id
@@ -128,7 +129,14 @@ function timelineLineClass(status: 'done' | 'current' | 'pending'): string {
   return status === 'done' ? 'bg-emerald-500' : 'bg-slate-200'
 }
 
-async function advance(): Promise<void> {
+function requestAdvance(): void {
+  if (!transaction.value || !nextStage.value) {
+    return
+  }
+  stageDialogOpen.value = true
+}
+
+async function confirmAdvance(): Promise<void> {
   if (!transaction.value || !nextStage.value) {
     return
   }
@@ -139,6 +147,7 @@ async function advance(): Promise<void> {
       nextStage.value,
     )
     transaction.value = updated
+    stageDialogOpen.value = false
   } catch (err) {
     error.value = extractErrorMessage(err)
   } finally {
@@ -285,9 +294,9 @@ function goBack(): void {
             type="button"
             :disabled="transitionLoading"
             class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
-            @click="advance"
+            @click="requestAdvance"
           >
-            {{ transitionLoading ? 'Güncelleniyor...' : `Sonraki Aşama: ${STAGE_LABELS[nextStage]}` }}
+            Sonraki Aşama: {{ STAGE_LABELS[nextStage] }}
           </button>
           <button
             type="button"
@@ -428,5 +437,13 @@ function goBack(): void {
         {{ error }}
       </div>
     </template>
+
+    <StageTransitionDialog
+      v-model="stageDialogOpen"
+      :transaction="transaction"
+      :next-stage="nextStage"
+      :loading="transitionLoading"
+      @confirm="confirmAdvance"
+    />
   </div>
 </template>

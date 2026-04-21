@@ -6,15 +6,31 @@ interface NavLink {
   label: string
   icon: string
   adminOnly?: boolean
+  exact?: boolean
 }
 
 const authStore = useAuthStore()
 const router = useRouter()
 
 const allLinks: NavLink[] = [
-  { to: '/', label: 'Ana Sayfa', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+  {
+    to: '/',
+    label: 'Dashboard',
+    icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
+    exact: true,
+  },
+  {
+    to: '/transactions',
+    label: 'İşlemler',
+    icon: 'M9 17v-2a4 4 0 014-4h4m-7-4h.01M9 5H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2h-4',
+  },
   { to: '/transactions/new', label: 'Yeni İşlem', icon: 'M12 4v16m8-8H4' },
-  { to: '/users', label: 'Danışmanlar', icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a4 4 0 11-8 0 4 4 0 018 0z', adminOnly: true },
+  {
+    to: '/users',
+    label: 'Danışmanlar',
+    icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a4 4 0 11-8 0 4 4 0 018 0z',
+    adminOnly: true,
+  },
 ]
 
 const navLinks = computed(() =>
@@ -49,7 +65,8 @@ async function handleLogout(): Promise<void> {
           :key="link.to"
           :to="link.to"
           class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
-          active-class="bg-slate-800 text-white"
+          :active-class="link.exact ? '' : 'bg-slate-800 text-white'"
+          :exact-active-class="link.exact ? 'bg-slate-800 text-white' : ''"
         >
           <svg
             class="h-5 w-5"

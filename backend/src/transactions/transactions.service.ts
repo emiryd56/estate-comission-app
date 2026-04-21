@@ -15,6 +15,12 @@ import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { UpdateTransactionStageDto } from './dto/update-transaction-stage.dto';
 import { TransactionStage } from './enums/transaction-stage.enum';
 import { PaginatedResult } from './interfaces/paginated-result.interface';
+import type {
+  EarningsSummary,
+  StageBreakdown,
+  TopAgentEntry,
+  TransactionStats,
+} from './interfaces/transaction-stats.interface';
 import { Transaction, TransactionDocument } from './schemas/transaction.schema';
 import { calculateCommission } from './utils/commission-calculator';
 import { canTransition } from './utils/stage-transitions';
@@ -23,6 +29,17 @@ type MongoFilter = Record<string, unknown>;
 
 const AGENT_POPULATE_FIELDS = 'name email' as const;
 const SEARCH_REGEX_SPECIAL_CHARS = /[.*+?^${}()|[\]\\]/g;
+const RECENT_TRANSACTIONS_LIMIT = 5;
+const TOP_AGENTS_LIMIT = 5;
+const ACTIVE_STAGES: readonly TransactionStage[] = [
+  TransactionStage.AGREEMENT,
+  TransactionStage.EARNEST_MONEY,
+  TransactionStage.TITLE_DEED,
+];
+
+function startOfCurrentMonth(now: Date = new Date()): Date {
+  return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+}
 
 @Injectable()
 export class TransactionsService {
@@ -205,6 +222,200 @@ export class TransactionsService {
       `Transaction ${id} advanced ${current.stage} -> ${nextStage} by ${user.email}`,
     );
     return updated;
+  }
+
+  /**
+   * Aggregates dashboard figures in a single round trip. All four sub-queries
+   * share the same `buildAccessFilter` so agents see only their own numbers
+   * without any extra logic in the caller. The admin branch additionally
+   * returns `topAgents`; agents get an empty array to keep the response shape
+   * stable.
+   */
+  async getStats(user: AuthenticatedUser): Promise<TransactionStats> {
+    const accessFilter = this.buildAccessFilter(user);
+    const monthStart = startOfCurrentMonth();
+
+    const [breakdown, earnings, recent, topAgents] = await Promise.all([
+      this.aggregateStageBreakdown(accessFilter),
+      this.aggregateEarnings(user, accessFilter, monthStart),
+      this.findRecentTransactions(accessFilter),
+      user.role === UserRole.ADMIN
+        ? this.aggregateTopAgents()
+        : Promise.resolve<TopAgentEntry[]>([]),
+    ]);
+
+    return { breakdown, earnings, recent, topAgents };
+  }
+
+  private async aggregateStageBreakdown(
+    accessFilter: MongoFilter,
+  ): Promise<StageBreakdown> {
+    const groups = await this.transactionModel
+      .aggregate<{ _id: TransactionStage; count: number; totalFee: number }>([
+        { $match: accessFilter },
+        {
+          $group: {
+            _id: '$stage',
+            count: { $sum: 1 },
+            totalFee: { $sum: '$totalFee' },
+          },
+        },
+      ])
+      .exec();
+
+    const byStage: Record<TransactionStage, number> = {
+      [TransactionStage.AGREEMENT]: 0,
+      [TransactionStage.EARNEST_MONEY]: 0,
+      [TransactionStage.TITLE_DEED]: 0,
+      [TransactionStage.COMPLETED]: 0,
+    };
+    let completedFeeSum = 0;
+
+    for (const group of groups) {
+      byStage[group._id] = group.count;
+      if (group._id === TransactionStage.COMPLETED) {
+        completedFeeSum = group.totalFee;
+      }
+    }
+
+    const total = Object.values(byStage).reduce((sum, n) => sum + n, 0);
+    const completed = byStage[TransactionStage.COMPLETED];
+    const active = ACTIVE_STAGES.reduce((sum, stage) => sum + byStage[stage], 0);
+
+    return { total, active, completed, byStage, completedFeeSum };
+  }
+
+  private async aggregateEarnings(
+    user: AuthenticatedUser,
+    accessFilter: MongoFilter,
+    monthStart: Date,
+  ): Promise<EarningsSummary> {
+    const baseMatch: MongoFilter = {
+      ...accessFilter,
+      stage: TransactionStage.COMPLETED,
+    };
+
+    const perUserCut =
+      user.role === UserRole.ADMIN
+        ? '$financialBreakdown.companyCut'
+        : this.buildAgentCutExpression(new Types.ObjectId(user.userId));
+
+    const [result] = await this.transactionModel
+      .aggregate<{ total: number; thisMonth: number }>([
+        { $match: baseMatch },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: perUserCut },
+            thisMonth: {
+              $sum: {
+                $cond: [
+                  { $gte: ['$updatedAt', monthStart] },
+                  perUserCut,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ])
+      .exec();
+
+    return {
+      total: result?.total ?? 0,
+      thisMonth: result?.thisMonth ?? 0,
+      scope: user.role === UserRole.ADMIN ? 'company' : 'personal',
+    };
+  }
+
+  /**
+   * Builds the per-document agent cut expression: if the current user is the
+   * listing agent, add their listing cut; if they are the selling agent, add
+   * their selling cut. Using `$cond` keeps the expression in the server.
+   */
+  private buildAgentCutExpression(userId: Types.ObjectId): object {
+    return {
+      $add: [
+        {
+          $cond: [
+            { $eq: ['$listingAgent', userId] },
+            { $ifNull: ['$financialBreakdown.listingAgentCut', 0] },
+            0,
+          ],
+        },
+        {
+          $cond: [
+            { $eq: ['$sellingAgent', userId] },
+            { $ifNull: ['$financialBreakdown.sellingAgentCut', 0] },
+            0,
+          ],
+        },
+      ],
+    };
+  }
+
+  private findRecentTransactions(
+    accessFilter: MongoFilter,
+  ): Promise<TransactionDocument[]> {
+    return this.transactionModel
+      .find(accessFilter)
+      .populate('listingAgent', AGENT_POPULATE_FIELDS)
+      .populate('sellingAgent', AGENT_POPULATE_FIELDS)
+      .sort({ createdAt: -1 })
+      .limit(RECENT_TRANSACTIONS_LIMIT)
+      .exec();
+  }
+
+  private async aggregateTopAgents(): Promise<TopAgentEntry[]> {
+    return this.transactionModel
+      .aggregate<TopAgentEntry>([
+        { $match: { stage: TransactionStage.COMPLETED } },
+        {
+          $project: {
+            perAgent: [
+              {
+                agentId: '$listingAgent',
+                cut: { $ifNull: ['$financialBreakdown.listingAgentCut', 0] },
+              },
+              {
+                agentId: '$sellingAgent',
+                cut: { $ifNull: ['$financialBreakdown.sellingAgentCut', 0] },
+              },
+            ],
+          },
+        },
+        { $unwind: '$perAgent' },
+        { $match: { 'perAgent.cut': { $gt: 0 } } },
+        {
+          $group: {
+            _id: '$perAgent.agentId',
+            completedCount: { $sum: 1 },
+            totalCut: { $sum: '$perAgent.cut' },
+          },
+        },
+        { $sort: { totalCut: -1 } },
+        { $limit: TOP_AGENTS_LIMIT },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+        { $unwind: '$user' },
+        {
+          $project: {
+            _id: 0,
+            agentId: { $toString: '$_id' },
+            name: '$user.name',
+            email: '$user.email',
+            completedCount: 1,
+            totalCut: 1,
+          },
+        },
+      ])
+      .exec();
   }
 
   private assertAgentInvolvement(

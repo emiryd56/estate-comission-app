@@ -50,6 +50,7 @@ describe('TransactionsService', () => {
     findOneAndUpdate: jest.Mock;
     find: jest.Mock;
     countDocuments: jest.Mock;
+    aggregate: jest.Mock;
   };
 
   const admin: AuthenticatedUser = {
@@ -64,14 +65,18 @@ describe('TransactionsService', () => {
   };
   const otherAgentId = new Types.ObjectId().toHexString();
 
+  let aggregate: jest.Mock;
+
   beforeEach(async () => {
+    aggregate = jest.fn();
     model = {
       create: jest.fn(),
       findOne: jest.fn(),
       findOneAndUpdate: jest.fn(),
       find: jest.fn(),
       countDocuments: jest.fn(),
-    };
+      aggregate,
+    } as typeof model & { aggregate: jest.Mock };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
@@ -285,6 +290,93 @@ describe('TransactionsService', () => {
 
       const [filter] = model.findOne.mock.calls[0];
       expect(filter).not.toHaveProperty('$or');
+    });
+  });
+
+  describe('getStats', () => {
+    function mockAggregateSequence(
+      results: Array<Record<string, unknown>[]>,
+    ): void {
+      let callIndex = 0;
+      aggregate.mockImplementation(() => ({
+        exec: jest
+          .fn()
+          .mockResolvedValue(
+            results[Math.min(callIndex++, results.length - 1)],
+          ),
+      }));
+    }
+
+    it('builds a personal earnings summary for agents and omits topAgents', async () => {
+      mockAggregateSequence([
+        // stage breakdown
+        [
+          { _id: TransactionStage.AGREEMENT, count: 2, totalFee: 0 },
+          { _id: TransactionStage.COMPLETED, count: 3, totalFee: 450_000 },
+        ],
+        // earnings
+        [{ total: 37_500, thisMonth: 12_500 }],
+      ]);
+      model.find.mockReturnValue(chain([]));
+
+      const result = await service.getStats(agentA);
+
+      expect(result.breakdown.total).toBe(5);
+      expect(result.breakdown.active).toBe(2);
+      expect(result.breakdown.completed).toBe(3);
+      expect(result.breakdown.completedFeeSum).toBe(450_000);
+      expect(result.earnings).toEqual({
+        total: 37_500,
+        thisMonth: 12_500,
+        scope: 'personal',
+      });
+      expect(result.topAgents).toEqual([]);
+
+      // Agent-scoped pipelines must match through the $or access filter.
+      const [firstCall] = aggregate.mock.calls[0] as [Array<{ $match?: unknown }>];
+      expect(firstCall[0]).toHaveProperty('$match.$or');
+    });
+
+    it('returns company-scope earnings and topAgents for admins', async () => {
+      mockAggregateSequence([
+        [{ _id: TransactionStage.COMPLETED, count: 1, totalFee: 100_000 }],
+        [{ total: 50_000, thisMonth: 50_000 }],
+        [
+          {
+            agentId: 'abc',
+            name: 'Ahmet',
+            email: 'a@firma.com',
+            completedCount: 1,
+            totalCut: 25_000,
+          },
+        ],
+      ]);
+      model.find.mockReturnValue(chain([]));
+
+      const result = await service.getStats(admin);
+
+      expect(result.earnings.scope).toBe('company');
+      expect(result.earnings.total).toBe(50_000);
+      expect(result.topAgents).toHaveLength(1);
+      expect(result.topAgents[0].name).toBe('Ahmet');
+
+      // Admin stage breakdown must not be access-filtered.
+      const [firstCall] = aggregate.mock.calls[0] as [Array<{ $match?: unknown }>];
+      expect(firstCall[0]).toEqual({ $match: {} });
+    });
+
+    it('defaults earnings to zero when no completed transactions exist', async () => {
+      mockAggregateSequence([[], [], []]);
+      model.find.mockReturnValue(chain([]));
+
+      const result = await service.getStats(admin);
+
+      expect(result.earnings).toEqual({
+        total: 0,
+        thisMonth: 0,
+        scope: 'company',
+      });
+      expect(result.breakdown.total).toBe(0);
     });
   });
 });

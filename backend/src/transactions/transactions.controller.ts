@@ -20,6 +20,7 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { UpdateTransactionStageDto } from './dto/update-transaction-stage.dto';
 import type { PaginatedResult } from './interfaces/paginated-result.interface';
+import type { TransactionStats } from './interfaces/transaction-stats.interface';
 import { TransactionDocument } from './schemas/transaction.schema';
 import { TransactionsService } from './transactions.service';
 import { buildPdfFilename, buildTransactionPdf } from './utils/transaction-pdf';
@@ -44,6 +45,13 @@ export class TransactionsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PaginatedResult<TransactionDocument>> {
     return this.transactionsService.findAllPaginated(query, user);
+  }
+
+  @Get('stats')
+  getStats(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TransactionStats> {
+    return this.transactionsService.getStats(user);
   }
 
   @Get(':id')
