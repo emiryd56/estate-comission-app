@@ -1,9 +1,21 @@
+import fs from 'fs';
 import path from 'path';
 import PDFDocument from 'pdfkit';
 import { TransactionStage } from '../enums/transaction-stage.enum';
 import { TransactionDocument } from '../schemas/transaction.schema';
 
-const FONTS_DIR = path.resolve(__dirname, '..', '..', '..', 'assets', 'fonts');
+function resolveFontsDir(): string {
+  const candidates = [
+    path.resolve(__dirname, '..', '..', 'assets', 'fonts'),
+    path.resolve(__dirname, '..', '..', '..', 'assets', 'fonts'),
+  ];
+  return (
+    candidates.find((dir) => fs.existsSync(path.join(dir, 'DejaVuSans.ttf'))) ??
+    candidates[0]
+  );
+}
+
+const FONTS_DIR = resolveFontsDir();
 const FONT_REGULAR_PATH = path.join(FONTS_DIR, 'DejaVuSans.ttf');
 const FONT_BOLD_PATH = path.join(FONTS_DIR, 'DejaVuSans-Bold.ttf');
 const FONT_REGULAR = 'Body';
