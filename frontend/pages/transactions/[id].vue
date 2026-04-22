@@ -2,7 +2,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { TransactionStage } from '~/types'
 import type { StageHistoryEntry, Transaction } from '~/types'
-import { formatCurrency, getNextStage, STAGE_LABELS, STAGE_ORDER } from '~/utils/stage'
+import { formatDateTime } from '~/utils/date'
+import {
+  formatCurrency,
+  getNextStage,
+  STAGE_BADGE_CLASS,
+  STAGE_LABELS,
+  STAGE_ORDER,
+} from '~/utils/stage'
 
 const route = useRoute()
 const router = useRouter()
@@ -50,6 +57,7 @@ const stageTimeline = computed<
     label: string
     status: 'done' | 'current' | 'pending'
     changedAt: string | null
+    changedByName: string | null
   }>
 >(() => {
   if (!transaction.value) {
@@ -75,23 +83,10 @@ const stageTimeline = computed<
       label: STAGE_LABELS[stage],
       status,
       changedAt: entry ? entry.changedAt : null,
+      changedByName: entry?.changedBy?.name ?? null,
     }
   })
 })
-
-function formatDate(value: string | Date | null): string {
-  if (!value) {
-    return '—'
-  }
-  try {
-    return new Intl.DateTimeFormat('tr-TR', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(value))
-  } catch {
-    return String(value)
-  }
-}
 
 function formatRatio(value: number | undefined | null): string {
   if (!transaction.value || transaction.value.totalFee === 0) {
@@ -101,16 +96,6 @@ function formatRatio(value: number | undefined | null): string {
     return '—'
   }
   return `%${Math.round((value / transaction.value.totalFee) * 100)}`
-}
-
-function stageBadgeClass(stage: TransactionStage): string {
-  const map: Record<TransactionStage, string> = {
-    [TransactionStage.AGREEMENT]: 'bg-slate-100 text-slate-700 ring-slate-200',
-    [TransactionStage.EARNEST_MONEY]: 'bg-amber-50 text-amber-800 ring-amber-200',
-    [TransactionStage.TITLE_DEED]: 'bg-sky-50 text-sky-800 ring-sky-200',
-    [TransactionStage.COMPLETED]: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
-  }
-  return map[stage]
 }
 
 function timelineDotClass(status: 'done' | 'current' | 'pending'): string {
@@ -242,15 +227,15 @@ function goBack(): void {
             <div class="mt-3 flex flex-wrap items-center gap-3">
               <span
                 class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset"
-                :class="stageBadgeClass(transaction.stage)"
+                :class="STAGE_BADGE_CLASS[transaction.stage]"
               >
                 {{ STAGE_LABELS[transaction.stage] }}
               </span>
               <span class="text-xs text-slate-500">
-                Oluşturma: {{ formatDate(transaction.createdAt) }}
+                Oluşturma: {{ formatDateTime(transaction.createdAt) }}
               </span>
               <span class="text-xs text-slate-500">
-                Güncelleme: {{ formatDate(transaction.updatedAt) }}
+                Güncelleme: {{ formatDateTime(transaction.updatedAt) }}
               </span>
             </div>
           </div>
@@ -355,7 +340,10 @@ function goBack(): void {
                   Bekliyor
                 </template>
                 <template v-else-if="item.changedAt">
-                  {{ formatDate(item.changedAt) }}
+                  {{ formatDateTime(item.changedAt) }}
+                  <template v-if="item.changedByName">
+                    · {{ item.changedByName }} tarafından
+                  </template>
                 </template>
                 <template v-else>
                   —

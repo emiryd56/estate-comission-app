@@ -2,6 +2,7 @@ import { UserRole } from '~/types'
 
 export interface JwtPayload {
   sub?: string
+  name?: string
   email?: string
   role?: UserRole
   exp?: number
@@ -15,18 +16,14 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
   }
   try {
     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-    const json = atob(base64)
-    return JSON.parse(json) as JwtPayload
+    return JSON.parse(atob(base64)) as JwtPayload
   } catch {
     return null
   }
 }
 
-export function isTokenExpired(payload: JwtPayload | null): boolean {
-  if (!payload?.exp) {
-    return false
-  }
-  return payload.exp * 1000 < Date.now()
+function isTokenExpired(payload: JwtPayload): boolean {
+  return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()
 }
 
 export function isValidSession(payload: JwtPayload | null): boolean {

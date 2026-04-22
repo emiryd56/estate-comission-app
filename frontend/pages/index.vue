@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { TransactionStage } from '~/types'
 import type { Transaction } from '~/types'
-import { formatCurrency, getNextStage, STAGE_LABELS } from '~/utils/stage'
+import { formatShortDate } from '~/utils/date'
+import {
+  formatCurrency,
+  getNextStage,
+  STAGE_BADGE_CLASS,
+  STAGE_LABELS,
+} from '~/utils/stage'
 
 const transactionStore = useTransactionStore()
 const authStore = useAuthStore()
@@ -43,32 +48,9 @@ const monthLabel = computed(() => {
   }).format(now)
 })
 
-const activeAssignments = computed<Transaction[]>(() => {
-  if (!stats.value) return []
-  // Show active (non-completed) transactions from the recent slice so agents
-  // can see what needs their attention. Admins see the same cross-section.
-  return stats.value.recent.filter(
-    (t) => t.stage !== TransactionStage.COMPLETED,
-  )
-})
-
-const STAGE_BADGE_CLASS: Readonly<Record<TransactionStage, string>> = {
-  [TransactionStage.AGREEMENT]: 'bg-slate-100 text-slate-700 ring-slate-200',
-  [TransactionStage.EARNEST_MONEY]: 'bg-amber-50 text-amber-800 ring-amber-200',
-  [TransactionStage.TITLE_DEED]: 'bg-sky-50 text-sky-800 ring-sky-200',
-  [TransactionStage.COMPLETED]: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
-}
-
-function formatShortDate(value: string): string {
-  try {
-    return new Intl.DateTimeFormat('tr-TR', {
-      day: '2-digit',
-      month: 'short',
-    }).format(new Date(value))
-  } catch {
-    return value
-  }
-}
+const activeAssignments = computed<Transaction[]>(
+  () => stats.value?.activeRecent ?? [],
+)
 
 const stageDialogOpen = ref(false)
 const stageDialogLoading = ref(false)

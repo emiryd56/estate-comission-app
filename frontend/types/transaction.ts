@@ -16,6 +16,7 @@ export interface FinancialBreakdown {
 export interface StageHistoryEntry {
   stage: TransactionStage
   changedAt: string
+  changedBy?: PopulatedAgent | null
 }
 
 export interface Transaction {

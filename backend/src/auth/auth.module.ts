@@ -14,19 +14,14 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService): JwtModuleOptions => {
-        const secret = configService.get<string>('JWT_SECRET');
-        if (!secret) {
-          throw new Error('JWT_SECRET environment variable is not defined');
-        }
-        const expiresIn = configService.get<string>('JWT_EXPIRES_IN') ?? '1d';
-        return {
-          secret,
-          signOptions: {
-            expiresIn: expiresIn as unknown as number | `${number}`,
-          },
-        };
-      },
+      useFactory: (config: ConfigService): JwtModuleOptions => ({
+        secret: config.getOrThrow<string>('JWT_SECRET'),
+        signOptions: {
+          expiresIn: (config.get<string>('JWT_EXPIRES_IN') ?? '1d') as unknown as
+            | number
+            | `${number}`,
+        },
+      }),
     }),
   ],
   controllers: [AuthController],

@@ -32,5 +32,7 @@ export interface TransactionStats {
   breakdown: StageBreakdown;
   earnings: EarningsSummary;
   recent: TransactionDocument[];
+  /** Recent transactions that are still in an active (non-completed) stage. */
+  activeRecent: TransactionDocument[];
   topAgents: TopAgentEntry[];
 }

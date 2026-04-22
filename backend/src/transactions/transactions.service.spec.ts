@@ -55,11 +55,13 @@ describe('TransactionsService', () => {
 
   const admin: AuthenticatedUser = {
     userId: new Types.ObjectId().toHexString(),
+    name: 'Admin',
     email: 'admin@firma.com',
     role: UserRole.ADMIN,
   };
   const agentA: AuthenticatedUser = {
     userId: new Types.ObjectId().toHexString(),
+    name: 'Agent A',
     email: 'agentA@firma.com',
     role: UserRole.AGENT,
   };

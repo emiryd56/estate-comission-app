@@ -7,20 +7,9 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/tailwind.css'],
 
-  tailwindcss: {
-    cssPath: '~/assets/css/tailwind.css',
-    configPath: 'tailwind.config.js',
-    exposeConfig: false,
-    viewer: true,
-  },
-
-  pinia: {
-    storesDirs: ['./stores/**'],
-  },
-
   runtimeConfig: {
     public: {
-      // Nuxt auto-overrides this with NUXT_PUBLIC_API_BASE at runtime if set
+      // Override at runtime with NUXT_PUBLIC_API_BASE
       apiBase: 'http://localhost:3001',
     },
   },

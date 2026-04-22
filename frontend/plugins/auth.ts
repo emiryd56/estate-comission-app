@@ -13,10 +13,16 @@ export default defineNuxtPlugin(() => {
   }
 
   const authStore = useAuthStore()
-  if (!authStore.user && payload?.sub && payload.email && payload.role) {
+  if (
+    !authStore.user &&
+    payload?.sub &&
+    payload.name &&
+    payload.email &&
+    payload.role
+  ) {
     authStore.user = {
       _id: payload.sub,
-      name: payload.email,
+      name: payload.name,
       email: payload.email,
       role: payload.role,
     }

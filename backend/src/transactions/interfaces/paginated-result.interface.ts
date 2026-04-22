@@ -3,6 +3,4 @@ export interface PaginatedResult<T> {
   total: number;
   page: number;
   totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
 }

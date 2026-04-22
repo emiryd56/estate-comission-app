@@ -9,22 +9,18 @@ import {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
-    const secret = configService.get<string>('JWT_SECRET');
-    if (!secret) {
-      throw new Error('JWT_SECRET environment variable is not defined');
-    }
-
+  constructor(config: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: secret,
+      secretOrKey: config.getOrThrow<string>('JWT_SECRET'),
     });
   }
 
   validate(payload: JwtPayload): AuthenticatedUser {
     return {
       userId: payload.sub,
+      name: payload.name,
       email: payload.email,
       role: payload.role,
     };

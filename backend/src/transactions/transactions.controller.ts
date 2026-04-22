@@ -9,6 +9,14 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiProduces,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -25,6 +33,8 @@ import { TransactionDocument } from './schemas/transaction.schema';
 import { TransactionsService } from './transactions.service';
 import { buildPdfFilename, buildTransactionPdf } from './utils/transaction-pdf';
 
+@ApiTags('Transactions')
+@ApiBearerAuth()
 @Controller('transactions')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.AGENT)
@@ -32,6 +42,12 @@ export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a new transaction' })
+  @ApiResponse({ status: 201, description: 'Transaction created.' })
+  @ApiResponse({
+    status: 403,
+    description: 'Agent attempted to create a transaction they are not part of.',
+  })
   create(
     @Body() dto: CreateTransactionDto,
     @CurrentUser() user: AuthenticatedUser,
@@ -40,6 +56,12 @@ export class TransactionsController {
   }
 
   @Get()
+  @ApiOperation({
+    summary: 'List transactions (paginated)',
+    description:
+      'Admins see all transactions. Agents see only transactions where they are the listing or selling agent.',
+  })
+  @ApiResponse({ status: 200, description: 'Paginated list of transactions.' })
   findAll(
     @Query() query: PaginationQueryDto,
     @CurrentUser() user: AuthenticatedUser,
@@ -48,6 +70,8 @@ export class TransactionsController {
   }
 
   @Get('stats')
+  @ApiOperation({ summary: 'Dashboard aggregates (scoped to the caller)' })
+  @ApiResponse({ status: 200, description: 'Breakdown, earnings, recent lists and top agents.' })
   getStats(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TransactionStats> {
@@ -55,6 +79,11 @@ export class TransactionsController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Fetch a transaction by id' })
+  @ApiParam({ name: 'id', description: 'Transaction ObjectId' })
+  @ApiResponse({ status: 200, description: 'Transaction document with populated agents.' })
+  @ApiResponse({ status: 404, description: 'Transaction not found.' })
+  @ApiResponse({ status: 403, description: 'Agent cannot access another agent\'s transaction.' })
   findOne(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -63,6 +92,15 @@ export class TransactionsController {
   }
 
   @Patch(':id/stage')
+  @ApiOperation({
+    summary: 'Advance a transaction to the next stage',
+    description:
+      'Only the direct next stage is allowed. Moving into COMPLETED triggers commission breakdown calculation.',
+  })
+  @ApiParam({ name: 'id', description: 'Transaction ObjectId' })
+  @ApiResponse({ status: 200, description: 'Transaction updated.' })
+  @ApiResponse({ status: 400, description: 'Invalid stage transition.' })
+  @ApiResponse({ status: 409, description: 'Concurrent stage change detected.' })
   updateStage(
     @Param('id') id: string,
     @Body() dto: UpdateTransactionStageDto,
@@ -72,6 +110,10 @@ export class TransactionsController {
   }
 
   @Get(':id/export')
+  @ApiOperation({ summary: 'Export a transaction summary as PDF' })
+  @ApiParam({ name: 'id', description: 'Transaction ObjectId' })
+  @ApiProduces('application/pdf')
+  @ApiResponse({ status: 200, description: 'Binary PDF stream.' })
   async exportOne(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,

@@ -3,7 +3,13 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { TransactionStage } from '~/types'
 import type { AdvancedFilters, Transaction } from '~/types'
 import type { SearchableSelectOption } from '~/components/SearchableSelect.vue'
-import { formatCurrency, getNextStage, STAGE_LABELS, STAGE_ORDER } from '~/utils/stage'
+import {
+  formatCurrency,
+  getNextStage,
+  STAGE_BADGE_CLASS,
+  STAGE_LABELS,
+  STAGE_ORDER,
+} from '~/utils/stage'
 
 const SEARCH_DEBOUNCE_MS = 500
 
@@ -111,16 +117,6 @@ watch(stageFilter, (next) => {
     resetPage: true,
   })
 })
-
-function stageBadgeClass(stage: TransactionStage): string {
-  const map: Record<TransactionStage, string> = {
-    [TransactionStage.AGREEMENT]: 'bg-slate-100 text-slate-700 ring-slate-200',
-    [TransactionStage.EARNEST_MONEY]: 'bg-amber-50 text-amber-800 ring-amber-200',
-    [TransactionStage.TITLE_DEED]: 'bg-sky-50 text-sky-800 ring-sky-200',
-    [TransactionStage.COMPLETED]: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
-  }
-  return map[stage]
-}
 
 async function goToPage(page: number): Promise<void> {
   if (page < 1 || page > totalPages.value || page === currentPage.value) {
@@ -520,7 +516,7 @@ async function resetAdvancedFilters(): Promise<void> {
             <td class="px-6 py-4">
               <span
                 class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset"
-                :class="stageBadgeClass(transaction.stage)"
+                :class="STAGE_BADGE_CLASS[transaction.stage]"
               >
                 {{ STAGE_LABELS[transaction.stage] }}
               </span>

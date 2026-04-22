@@ -54,12 +54,15 @@ export const useAuthStore = defineStore('auth', {
       }
       try {
         const api = useApi()
-        const me = await api<{ userId: string; email: string; role: UserRole }>(
-          '/auth/me',
-        )
+        const me = await api<{
+          userId: string
+          name: string
+          email: string
+          role: UserRole
+        }>('/auth/me')
         this.user = {
           _id: me.userId,
-          name: this.user?.name ?? me.email,
+          name: me.name,
           email: me.email,
           role: me.role,
         }

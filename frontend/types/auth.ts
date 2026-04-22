@@ -16,9 +16,3 @@ export interface LoginResponse {
   accessToken: string
   user: AuthUser
 }
-
-export interface AuthenticatedUser {
-  userId: string
-  email: string
-  role: UserRole
-}

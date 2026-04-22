@@ -106,14 +106,11 @@ export class TransactionsService {
       this.transactionModel.countDocuments(filter).exec(),
     ]);
 
-    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
     return {
       data,
       total,
       page,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPrevPage: page > 1 && totalPages > 0,
+      totalPages: total === 0 ? 0 : Math.ceil(total / limit),
     };
   }
 
@@ -235,16 +232,18 @@ export class TransactionsService {
     const accessFilter = this.buildAccessFilter(user);
     const monthStart = startOfCurrentMonth();
 
-    const [breakdown, earnings, recent, topAgents] = await Promise.all([
-      this.aggregateStageBreakdown(accessFilter),
-      this.aggregateEarnings(user, accessFilter, monthStart),
-      this.findRecentTransactions(accessFilter),
-      user.role === UserRole.ADMIN
-        ? this.aggregateTopAgents()
-        : Promise.resolve<TopAgentEntry[]>([]),
-    ]);
+    const [breakdown, earnings, recent, activeRecent, topAgents] =
+      await Promise.all([
+        this.aggregateStageBreakdown(accessFilter),
+        this.aggregateEarnings(user, accessFilter, monthStart),
+        this.findRecentTransactions(accessFilter),
+        this.findRecentTransactions(accessFilter, { activeOnly: true }),
+        user.role === UserRole.ADMIN
+          ? this.aggregateTopAgents()
+          : Promise.resolve<TopAgentEntry[]>([]),
+      ]);
 
-    return { breakdown, earnings, recent, topAgents };
+    return { breakdown, earnings, recent, activeRecent, topAgents };
   }
 
   private async aggregateStageBreakdown(
@@ -356,9 +355,13 @@ export class TransactionsService {
 
   private findRecentTransactions(
     accessFilter: MongoFilter,
+    options: { activeOnly?: boolean } = {},
   ): Promise<TransactionDocument[]> {
+    const filter: MongoFilter = options.activeOnly
+      ? { ...accessFilter, stage: { $in: [...ACTIVE_STAGES] } }
+      : accessFilter;
     return this.transactionModel
-      .find(accessFilter)
+      .find(filter)
       .populate('listingAgent', AGENT_POPULATE_FIELDS)
       .populate('sellingAgent', AGENT_POPULATE_FIELDS)
       .sort({ createdAt: -1 })

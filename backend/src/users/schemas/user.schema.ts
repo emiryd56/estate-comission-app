@@ -7,7 +7,22 @@ export type UserDocument = HydratedDocument<User>;
 
 const BCRYPT_SALT_ROUNDS = 10;
 
-@Schema({ timestamps: true, versionKey: false })
+@Schema({
+  timestamps: true,
+  versionKey: false,
+  toJSON: {
+    transform: (_doc, ret: Record<string, unknown>) => {
+      delete ret.password;
+      return ret;
+    },
+  },
+  toObject: {
+    transform: (_doc, ret: Record<string, unknown>) => {
+      delete ret.password;
+      return ret;
+    },
+  },
+})
 export class User {
   @Prop({ type: String, required: true, trim: true })
   name!: string;
@@ -36,14 +51,8 @@ export class User {
 
 export const UserSchema = SchemaFactory.createForClass(User);
 
-UserSchema.pre<UserDocument>(
-  'save',
-  async function hashPasswordHook(): Promise<void> {
-    if (!this.isModified('password')) {
-      return;
-    }
-
-    const salt: string = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
-    this.password = await bcrypt.hash(this.password, salt);
-  },
-);
+UserSchema.pre<UserDocument>('save', async function hashPasswordHook() {
+  if (!this.isModified('password')) return;
+  const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+  this.password = await bcrypt.hash(this.password, salt);
+});

@@ -26,5 +26,6 @@ export interface TransactionStats {
   breakdown: StageBreakdown
   earnings: EarningsSummary
   recent: Transaction[]
+  activeRecent: Transaction[]
   topAgents: TopAgentEntry[]
 }

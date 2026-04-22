@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -11,9 +6,13 @@ import { User, UserDocument } from './schemas/user.schema';
 
 const MONGO_DUPLICATE_KEY_CODE = 11000;
 
-interface MongoWriteError {
-  code?: number;
-  keyValue?: Record<string, unknown>;
+function isDuplicateKeyError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: number }).code === MONGO_DUPLICATE_KEY_CODE
+  );
 }
 
 @Injectable()
@@ -25,25 +24,17 @@ export class UsersService {
 
   async create(dto: CreateUserDto): Promise<UserDocument> {
     try {
-      const created = await this.userModel.create(dto);
-      const reloaded = await this.userModel.findById(created._id).exec();
-
-      if (!reloaded) {
-        throw new InternalServerErrorException(
-          'User was created but could not be reloaded',
-        );
-      }
-
-      return reloaded;
+      // The schema's toJSON transform strips `password` on serialization.
+      return await this.userModel.create(dto);
     } catch (error) {
-      if (this.isDuplicateKeyError(error)) {
+      if (isDuplicateKeyError(error)) {
         throw new ConflictException(`Email "${dto.email}" is already in use`);
       }
       throw error;
     }
   }
 
-  async findAll(): Promise<UserDocument[]> {
+  findAll(): Promise<UserDocument[]> {
     return this.userModel.find().sort({ createdAt: -1 }).exec();
   }
 
@@ -55,19 +46,10 @@ export class UsersService {
     return user;
   }
 
-  async findByEmailWithPassword(email: string): Promise<UserDocument | null> {
+  findByEmailWithPassword(email: string): Promise<UserDocument | null> {
     return this.userModel
       .findOne({ email: email.toLowerCase().trim() })
       .select('+password')
       .exec();
-  }
-
-  private isDuplicateKeyError(error: unknown): error is MongoWriteError {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as MongoWriteError).code === MONGO_DUPLICATE_KEY_CODE
-    );
   }
 }

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { onBeforeUnmount, watch } from 'vue'
 
+type Variant = 'primary' | 'success'
+
 interface Props {
   modelValue: boolean
   title: string
   description?: string
   confirmLabel?: string
   cancelLabel?: string
-  /** Controls the confirm button theme. */
-  variant?: 'primary' | 'danger' | 'success'
+  variant?: Variant
   loading?: boolean
   /** When true, clicking the backdrop does not close the modal. */
   persistent?: boolean
@@ -26,22 +27,16 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   confirm: []
-  cancel: []
 }>()
 
-const confirmButtonClass: Record<NonNullable<Props['variant']>, string> = {
-  primary:
-    'bg-indigo-600 text-white hover:bg-indigo-700 focus-visible:ring-indigo-500',
-  danger:
-    'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500',
-  success:
-    'bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500',
+const CONFIRM_BUTTON_CLASS: Readonly<Record<Variant, string>> = {
+  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 focus-visible:ring-indigo-500',
+  success: 'bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500',
 }
 
 function close(): void {
   if (props.loading) return
   emit('update:modelValue', false)
-  emit('cancel')
 }
 
 function confirm(): void {
@@ -50,14 +45,11 @@ function confirm(): void {
 }
 
 function onBackdropClick(): void {
-  if (props.persistent) return
-  close()
+  if (!props.persistent) close()
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && props.modelValue) {
-    close()
-  }
+  if (event.key === 'Escape' && props.modelValue) close()
 }
 
 watch(
@@ -148,7 +140,7 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 class="inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-                :class="confirmButtonClass[variant]"
+                :class="CONFIRM_BUTTON_CLASS[variant]"
                 :disabled="loading"
                 @click="confirm"
               >

@@ -17,10 +17,6 @@ export const useUserStore = defineStore('users', {
   getters: {
     agents: (state): User[] =>
       state.users.filter((user) => user.role === 'agent'),
-    getById:
-      (state) =>
-      (id: string): User | undefined =>
-        state.users.find((user) => user._id === id),
   },
 
   actions: {
