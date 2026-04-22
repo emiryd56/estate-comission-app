@@ -180,12 +180,21 @@ function toggleAdvancedPanel(): void {
   advancedPanelOpen.value = !advancedPanelOpen.value
 }
 
-function parseOptionalNumber(value: string): number | null {
-  if (value.trim().length === 0) {
+function parseOptionalNumber(value: unknown): number | null {
+  // Vue 3 auto-casts the value of <input type="number"> to a number, so the
+  // reactive field can be either '' (empty), a string, or already a number.
+  if (value === null || value === undefined) {
     return null
   }
-  const parsed = Number(value)
-  return Number.isNaN(parsed) ? null : parsed
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+  const trimmed = String(value).trim()
+  if (trimmed.length === 0) {
+    return null
+  }
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function buildFiltersFromDraft(): AdvancedFilters | null {
