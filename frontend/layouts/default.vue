@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 interface NavLink {
   to: string
@@ -11,6 +11,7 @@ interface NavLink {
 
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const allLinks: NavLink[] = [
   {
@@ -39,6 +40,25 @@ const navLinks = computed(() =>
 
 const currentUser = computed(() => authStore.user)
 
+/** Sidebar open state — desktop (lg+) always visible; mobile/tablet toggles. */
+const sidebarOpen = ref(false)
+
+function toggleSidebar(): void {
+  sidebarOpen.value = !sidebarOpen.value
+}
+
+function closeSidebar(): void {
+  sidebarOpen.value = false
+}
+
+// Auto-close sidebar on route change (mobile)
+watch(
+  () => route.fullPath,
+  () => {
+    closeSidebar()
+  },
+)
+
 onMounted(async () => {
   if (!authStore.user) {
     await authStore.hydrate()
@@ -52,14 +72,49 @@ async function handleLogout(): Promise<void> {
 </script>
 
 <template>
-  <div class="flex h-screen">
-    <aside class="flex h-screen w-[250px] flex-col bg-slate-900 text-white">
-      <div class="border-b border-slate-800 px-6 py-5">
-        <h1 class="text-lg font-semibold tracking-tight">Emlak Komisyon</h1>
-        <p class="mt-1 text-xs text-slate-400">İşlem Yönetim Paneli</p>
+  <div class="flex h-screen overflow-hidden">
+    <!-- Mobile overlay -->
+    <Transition
+      enter-active-class="transition-opacity duration-300 ease-in-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition-opacity duration-200 ease-in-out"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="sidebarOpen"
+        class="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-sm lg:hidden"
+        @click="closeSidebar"
+      />
+    </Transition>
+
+    <!-- Sidebar -->
+    <aside
+      class="fixed inset-y-0 left-0 z-40 flex w-[250px] flex-col bg-slate-900 text-white transition-transform duration-300 ease-in-out lg:static lg:translate-x-0"
+      :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+    >
+      <!-- Sidebar header -->
+      <div class="flex items-center justify-between border-b border-slate-800 px-6 py-5">
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight">Emlak Komisyon</h1>
+          <p class="mt-1 text-xs text-slate-400">İşlem Yönetim Paneli</p>
+        </div>
+        <!-- Close button (mobile only) -->
+        <button
+          type="button"
+          class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white lg:hidden"
+          aria-label="Menüyü kapat"
+          @click="closeSidebar"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
 
-      <nav class="flex-1 space-y-1 px-3 py-4">
+      <!-- Navigation -->
+      <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         <NuxtLink
           v-for="link in navLinks"
           :key="link.to"
@@ -85,6 +140,7 @@ async function handleLogout(): Promise<void> {
         </NuxtLink>
       </nav>
 
+      <!-- User section -->
       <div v-if="currentUser" class="border-t border-slate-800 px-4 py-4">
         <div class="mb-3 flex items-center gap-3">
           <div
@@ -114,8 +170,34 @@ async function handleLogout(): Promise<void> {
       </div>
     </aside>
 
-    <main class="flex-1 overflow-y-auto bg-slate-50 p-8">
-      <slot />
-    </main>
+    <!-- Main content area -->
+    <div class="flex min-w-0 flex-1 flex-col">
+      <!-- Top bar with hamburger (visible only on mobile/tablet, hidden on lg+) -->
+      <header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur-sm lg:hidden">
+        <button
+          type="button"
+          class="rounded-md p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+          aria-label="Menüyü aç"
+          @click="toggleSidebar"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <span class="text-sm font-semibold text-slate-900">Emlak Komisyon</span>
+        <div class="flex-1" />
+        <div
+          v-if="currentUser"
+          class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500 text-xs font-semibold text-white"
+        >
+          {{ currentUser.email.charAt(0).toUpperCase() }}
+        </div>
+      </header>
+
+      <!-- Page content — same p-8 as original -->
+      <main class="flex-1 overflow-y-auto bg-slate-50 p-8">
+        <slot />
+      </main>
+    </div>
   </div>
 </template>
