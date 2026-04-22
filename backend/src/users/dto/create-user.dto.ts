@@ -10,13 +10,13 @@ import {
 import { UserRole } from '../enums/user-role.enum';
 
 export class CreateUserDto {
-  @ApiProperty({ example: 'Ayşe Demir', minLength: 2, maxLength: 80 })
+  @ApiProperty({ example: 'Alex Morgan', minLength: 2, maxLength: 80 })
   @IsString()
   @MinLength(2)
   @MaxLength(80)
   name!: string;
 
-  @ApiProperty({ example: 'ayse@firma.com', maxLength: 120, format: 'email' })
+  @ApiProperty({ example: 'alex@company.com', maxLength: 120, format: 'email' })
   @IsEmail()
   @MaxLength(120)
   email!: string;

@@ -18,9 +18,9 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: 'Seçin...',
-  searchPlaceholder: 'Ara...',
-  emptyText: 'Sonuç bulunamadı.',
+  placeholder: 'Select...',
+  searchPlaceholder: 'Search...',
+  emptyText: 'No results found.',
   allowClear: true,
   disabled: false,
 })
@@ -197,7 +197,7 @@ onBeforeUnmount(() => {
         <button
           v-if="allowClear && selectedOption && !disabled"
           type="button"
-          aria-label="Seçimi temizle"
+          aria-label="Clear selection"
           class="rounded p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
           @click="clearSelection"
         >

@@ -22,13 +22,13 @@ const allLinks: NavLink[] = [
   },
   {
     to: '/transactions',
-    label: 'İşlemler',
+    label: 'Transactions',
     icon: 'M9 17v-2a4 4 0 014-4h4m-7-4h.01M9 5H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2h-4',
   },
-  { to: '/transactions/new', label: 'Yeni İşlem', icon: 'M12 4v16m8-8H4' },
+  { to: '/transactions/new', label: 'New Transaction', icon: 'M12 4v16m8-8H4' },
   {
     to: '/users',
-    label: 'Danışmanlar',
+    label: 'Agents',
     icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a4 4 0 11-8 0 4 4 0 018 0z',
     adminOnly: true,
   },
@@ -97,14 +97,14 @@ async function handleLogout(): Promise<void> {
       <!-- Sidebar header -->
       <div class="flex items-center justify-between border-b border-slate-800 px-6 py-5">
         <div>
-          <h1 class="text-lg font-semibold tracking-tight">Emlak Komisyon</h1>
-          <p class="mt-1 text-xs text-slate-400">İşlem Yönetim Paneli</p>
+          <h1 class="text-lg font-semibold tracking-tight">Estate Commission</h1>
+          <p class="mt-1 text-xs text-slate-400">Transaction console</p>
         </div>
         <!-- Close button (mobile only) -->
         <button
           type="button"
           class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white lg:hidden"
-          aria-label="Menüyü kapat"
+          aria-label="Close menu"
           @click="closeSidebar"
         >
           <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -153,7 +153,7 @@ async function handleLogout(): Promise<void> {
               {{ currentUser.email }}
             </p>
             <p class="text-xs capitalize text-slate-400">
-              {{ currentUser.role === 'admin' ? 'Admin' : 'Danışman' }}
+              {{ currentUser.role === 'admin' ? 'Admin' : 'Agent' }}
             </p>
           </div>
         </div>
@@ -165,7 +165,7 @@ async function handleLogout(): Promise<void> {
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          Çıkış Yap
+          Sign out
         </button>
       </div>
     </aside>
@@ -177,14 +177,14 @@ async function handleLogout(): Promise<void> {
         <button
           type="button"
           class="rounded-md p-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-          aria-label="Menüyü aç"
+          aria-label="Open menu"
           @click="toggleSidebar"
         >
           <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <span class="text-sm font-semibold text-slate-900">Emlak Komisyon</span>
+        <span class="text-sm font-semibold text-slate-900">Estate Commission</span>
         <div class="flex-1" />
         <div
           v-if="currentUser"

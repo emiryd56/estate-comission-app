@@ -2,9 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { TransactionStage } from '~/types'
 import type { StageHistoryEntry, Transaction } from '~/types'
+import { formatCurrency } from '~/utils/currency'
 import { formatDateTime } from '~/utils/date'
 import {
-  formatCurrency,
   getNextStage,
   STAGE_BADGE_CLASS,
   STAGE_LABELS,
@@ -95,7 +95,7 @@ function formatRatio(value: number | undefined | null): string {
   if (value === undefined || value === null) {
     return '—'
   }
-  return `%${Math.round((value / transaction.value.totalFee) * 100)}`
+  return `${Math.round((value / transaction.value.totalFee) * 100)}%`
 }
 
 function timelineDotClass(status: 'done' | 'current' | 'pending'): string {
@@ -154,7 +154,7 @@ async function downloadExport(): Promise<void> {
         : undefined,
     })
     if (!response.ok) {
-      throw new Error(`İndirme başarısız: HTTP ${response.status}`)
+      throw new Error(`Download failed: HTTP ${response.status}`)
     }
     const blob = await response.blob()
     const disposition = response.headers.get('Content-Disposition') ?? ''
@@ -196,7 +196,7 @@ function goBack(): void {
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
-        Panoya dön
+        Back to dashboard
       </button>
     </div>
 
@@ -204,7 +204,7 @@ function goBack(): void {
       v-if="loading"
       class="rounded-lg border border-slate-200 bg-white p-10 text-center text-sm text-slate-500 shadow-sm"
     >
-      Yükleniyor...
+      Loading...
     </div>
 
     <div
@@ -219,7 +219,7 @@ function goBack(): void {
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p class="text-xs uppercase tracking-wide text-slate-400">
-              İşlem No {{ transaction._id }}
+              Transaction ID {{ transaction._id }}
             </p>
             <h1 class="mt-1 text-2xl font-bold text-slate-900">
               {{ transaction.title }}
@@ -232,16 +232,16 @@ function goBack(): void {
                 {{ STAGE_LABELS[transaction.stage] }}
               </span>
               <span class="text-xs text-slate-500">
-                Oluşturma: {{ formatDateTime(transaction.createdAt) }}
+                Created: {{ formatDateTime(transaction.createdAt) }}
               </span>
               <span class="text-xs text-slate-500">
-                Güncelleme: {{ formatDateTime(transaction.updatedAt) }}
+                Updated: {{ formatDateTime(transaction.updatedAt) }}
               </span>
             </div>
           </div>
 
           <div class="flex flex-col items-end gap-2">
-            <p class="text-xs text-slate-500">Toplam Komisyon</p>
+            <p class="text-xs text-slate-500">Total commission</p>
             <p class="text-2xl font-bold text-emerald-600">
               {{ formatCurrency(transaction.totalFee) }}
             </p>
@@ -251,7 +251,7 @@ function goBack(): void {
         <div class="mt-6 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2">
           <div>
             <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-              İlan Danışmanı
+              Listing agent
             </p>
             <p class="mt-1 text-sm font-semibold text-slate-900">
               {{ transaction.listingAgent.name }}
@@ -262,7 +262,7 @@ function goBack(): void {
           </div>
           <div>
             <p class="text-xs font-medium uppercase tracking-wide text-slate-400">
-              Satış Danışmanı
+              Selling agent
             </p>
             <p class="mt-1 text-sm font-semibold text-slate-900">
               {{ transaction.sellingAgent.name }}
@@ -281,7 +281,7 @@ function goBack(): void {
             class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
             @click="requestAdvance"
           >
-            Sonraki Aşama: {{ STAGE_LABELS[nextStage] }}
+            Next stage: {{ STAGE_LABELS[nextStage] }}
           </button>
           <button
             type="button"
@@ -292,13 +292,13 @@ function goBack(): void {
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m-9 7h12a2 2 0 002-2v-5a2 2 0 00-2-2h-3" />
             </svg>
-            {{ exportLoading ? 'Hazırlanıyor...' : 'Döküman Al' }}
+            {{ exportLoading ? 'Preparing...' : 'Download PDF' }}
           </button>
         </div>
       </header>
 
       <section class="mb-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 class="mb-4 text-base font-semibold text-slate-900">Zaman Çizelgesi</h2>
+        <h2 class="mb-4 text-base font-semibold text-slate-900">Timeline</h2>
         <ol class="space-y-4">
           <li
             v-for="(item, index) in stageTimeline"
@@ -337,12 +337,12 @@ function goBack(): void {
               </p>
               <p class="text-xs text-slate-500">
                 <template v-if="item.status === 'pending'">
-                  Bekliyor
+                  Pending
                 </template>
                 <template v-else-if="item.changedAt">
                   {{ formatDateTime(item.changedAt) }}
                   <template v-if="item.changedByName">
-                    · {{ item.changedByName }} tarafından
+                    · by {{ item.changedByName }}
                   </template>
                 </template>
                 <template v-else>
@@ -359,32 +359,32 @@ function goBack(): void {
         class="rounded-lg border border-emerald-200 bg-emerald-50/50 p-6 shadow-sm"
       >
         <h2 class="mb-4 text-base font-semibold text-emerald-900">
-          Finansal Hak Ediş Raporu
+          Commission breakdown
         </h2>
         <table class="min-w-full overflow-hidden rounded-md border border-emerald-200 bg-white">
           <thead class="bg-emerald-100">
             <tr>
               <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-emerald-900">
-                Kalem
+                Item
               </th>
               <th class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-emerald-900">
-                Tutar
+                Amount
               </th>
               <th class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-emerald-900">
-                Oran
+                Share
               </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-emerald-100 text-sm">
             <tr>
-              <td class="px-4 py-2 text-slate-700">Toplam Komisyon</td>
+              <td class="px-4 py-2 text-slate-700">Total commission</td>
               <td class="px-4 py-2 text-right font-semibold text-slate-900">
                 {{ formatCurrency(transaction.totalFee) }}
               </td>
-              <td class="px-4 py-2 text-right text-slate-500">%100</td>
+              <td class="px-4 py-2 text-right text-slate-500">100%</td>
             </tr>
             <tr>
-              <td class="px-4 py-2 text-slate-700">Şirket Payı</td>
+              <td class="px-4 py-2 text-slate-700">Company share</td>
               <td class="px-4 py-2 text-right font-semibold text-slate-900">
                 {{ formatCurrency(transaction.financialBreakdown.companyCut ?? 0) }}
               </td>
@@ -394,7 +394,7 @@ function goBack(): void {
             </tr>
             <tr>
               <td class="px-4 py-2 text-slate-700">
-                İlan Danışmanı ({{ transaction.listingAgent.name }})
+                Listing agent ({{ transaction.listingAgent.name }})
               </td>
               <td class="px-4 py-2 text-right font-semibold text-slate-900">
                 {{ formatCurrency(transaction.financialBreakdown.listingAgentCut ?? 0) }}
@@ -405,7 +405,7 @@ function goBack(): void {
             </tr>
             <tr>
               <td class="px-4 py-2 text-slate-700">
-                Satış Danışmanı ({{ transaction.sellingAgent.name }})
+                Selling agent ({{ transaction.sellingAgent.name }})
               </td>
               <td class="px-4 py-2 text-right font-semibold text-slate-900">
                 {{ formatCurrency(transaction.financialBreakdown.sellingAgentCut ?? 0) }}

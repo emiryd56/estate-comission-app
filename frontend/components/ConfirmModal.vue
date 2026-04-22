@@ -17,8 +17,8 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   description: '',
-  confirmLabel: 'Onayla',
-  cancelLabel: 'İptal',
+  confirmLabel: 'Confirm',
+  cancelLabel: 'Cancel',
   variant: 'primary',
   loading: false,
   persistent: false,
@@ -107,7 +107,7 @@ onBeforeUnmount(() => {
               type="button"
               class="absolute right-3 top-3 rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
               :disabled="loading"
-              aria-label="Kapat"
+              aria-label="Close"
               @click="close"
             >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

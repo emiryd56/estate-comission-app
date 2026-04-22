@@ -14,15 +14,15 @@ interface SeedUser {
 }
 
 function readSeedUsers(): SeedUser[] {
-  const adminEmail = (process.env.SEED_ADMIN_EMAIL ?? 'admin@firma.com').toLowerCase();
+  const adminEmail = (process.env.SEED_ADMIN_EMAIL ?? 'admin@company.com').toLowerCase();
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'admin123';
   const adminName = process.env.SEED_ADMIN_NAME ?? 'Admin User';
 
   return [
     { name: adminName, email: adminEmail, password: adminPassword, role: 'admin' },
-    { name: 'Ayşe Demir', email: 'ayse@firma.com', password: 'agent123', role: 'agent' },
-    { name: 'Mehmet Kara', email: 'mehmet@firma.com', password: 'agent123', role: 'agent' },
-    { name: 'Zeynep Çelik', email: 'zeynep@firma.com', password: 'agent123', role: 'agent' },
+    { name: 'Alex Morgan', email: 'alex@company.com', password: 'agent123', role: 'agent' },
+    { name: 'Priya Patel', email: 'priya@company.com', password: 'agent123', role: 'agent' },
+    { name: 'James Carter', email: 'james@company.com', password: 'agent123', role: 'agent' },
   ];
 }
 

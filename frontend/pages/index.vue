@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { Transaction } from '~/types'
+import { formatCurrency } from '~/utils/currency'
 import { formatShortDate } from '~/utils/date'
 import {
-  formatCurrency,
   getNextStage,
   STAGE_BADGE_CLASS,
   STAGE_LABELS,
@@ -28,21 +28,21 @@ const userName = computed(() => authStore.user?.name ?? '')
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
-  if (hour < 6) return 'İyi geceler'
-  if (hour < 12) return 'Günaydın'
-  if (hour < 18) return 'İyi günler'
-  return 'İyi akşamlar'
+  if (hour < 6) return 'Good night'
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
 })
 
 const earningsSubtitle = computed(() =>
   stats.value?.earnings.scope === 'company'
-    ? 'Firma hak edişi (tamamlanan işlemlerden)'
-    : 'Kişisel hak edişiniz (tamamlanan işlemlerden)',
+    ? 'Company earnings (from completed transactions)'
+    : 'Your personal earnings (from completed transactions)',
 )
 
 const monthLabel = computed(() => {
   const now = new Date()
-  return new Intl.DateTimeFormat('tr-TR', {
+  return new Intl.DateTimeFormat('en-GB', {
     month: 'long',
     year: 'numeric',
   }).format(now)
@@ -92,17 +92,17 @@ async function confirmStageAdvance(): Promise<void> {
     <header class="mb-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-          {{ isAdmin ? 'Yönetici Paneli' : 'Danışman Paneli' }}
+          {{ isAdmin ? 'Admin dashboard' : 'Agent dashboard' }}
         </p>
         <h1 class="mt-1 text-2xl font-bold text-slate-900">
           {{ greeting }}<template v-if="userName">, {{ userName }}</template>.
         </h1>
         <p class="mt-1 text-sm text-slate-500">
           <template v-if="isAdmin">
-            Tüm ofisin özetini burada görüyorsunuz.
+            Here is a snapshot of the entire office.
           </template>
           <template v-else>
-            İşlemlerinizin durumu ve hak edişleriniz bu panelde.
+            Track your transactions and earnings at a glance.
           </template>
         </p>
       </div>
@@ -110,7 +110,7 @@ async function confirmStageAdvance(): Promise<void> {
         to="/transactions/new"
         class="self-start rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 sm:self-auto"
       >
-        + Yeni İşlem
+        + New transaction
       </NuxtLink>
     </header>
 
@@ -119,39 +119,39 @@ async function confirmStageAdvance(): Promise<void> {
       v-if="loadingInitial && !stats"
       class="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500 shadow-sm"
     >
-      Dashboard yükleniyor...
+      Loading dashboard...
     </div>
 
     <template v-else-if="stats">
       <!-- KPI row -->
       <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Toplam İşlem"
+          label="Total transactions"
           :value="String(stats.breakdown.total)"
           :sublabel="
             isAdmin
-              ? `${stats.breakdown.active} aktif · ${stats.breakdown.completed} tamamlandı`
-              : `${stats.breakdown.active} aktif takip`
+              ? `${stats.breakdown.active} active · ${stats.breakdown.completed} completed`
+              : `${stats.breakdown.active} in progress`
           "
           accent="bg-indigo-50 text-indigo-600"
           icon="M9 17v-2a4 4 0 014-4h4m-7-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
         />
         <StatCard
-          label="Aktif İşlemler"
+          label="Active transactions"
           :value="String(stats.breakdown.active)"
-          :sublabel="isAdmin ? 'Ofis genelinde' : 'Sizin takibiniz'"
+          :sublabel="isAdmin ? 'Across the office' : 'Assigned to you'"
           accent="bg-amber-50 text-amber-600"
           icon="M13 10V3L4 14h7v7l9-11h-7z"
         />
         <StatCard
-          label="Tamamlanan"
+          label="Completed"
           :value="String(stats.breakdown.completed)"
-          :sublabel="`Toplam hacim ${formatCurrency(stats.breakdown.completedFeeSum)}`"
+          :sublabel="`Total volume ${formatCurrency(stats.breakdown.completedFeeSum)}`"
           accent="bg-emerald-50 text-emerald-600"
           icon="M5 13l4 4L19 7"
         />
         <StatCard
-          :label="isAdmin ? 'Firma Hak Edişi' : 'Kazanım'"
+          :label="isAdmin ? 'Company earnings' : 'Your earnings'"
           :value="formatCurrency(stats.earnings.total)"
           :sublabel="earningsSubtitle"
           accent="bg-sky-50 text-sky-600"
@@ -166,13 +166,13 @@ async function confirmStageAdvance(): Promise<void> {
           <header class="mb-4 flex items-center justify-between">
             <div>
               <h2 class="text-sm font-semibold text-slate-900">
-                Aşama Dağılımı
+                Stage distribution
               </h2>
               <p class="text-xs text-slate-500">
                 {{
                   isAdmin
-                    ? 'Ofis genelindeki işlemlerin aşama bazında dağılımı.'
-                    : 'Size atanmış işlemlerin aşama dağılımı.'
+                    ? 'How transactions are spread across stages across the office.'
+                    : 'Breakdown of transactions assigned to you by stage.'
                 }}
               </p>
             </div>
@@ -180,7 +180,7 @@ async function confirmStageAdvance(): Promise<void> {
               to="/transactions"
               class="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
             >
-              Tümünü gör →
+              View all →
             </NuxtLink>
           </header>
 
@@ -188,7 +188,7 @@ async function confirmStageAdvance(): Promise<void> {
             v-if="stats.breakdown.total === 0"
             class="rounded-md border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500"
           >
-            Henüz işlem yok. Başlamak için yeni bir işlem oluşturun.
+            No transactions yet. Create one to get started.
           </div>
           <StageDistributionBar
             v-else
@@ -210,14 +210,14 @@ async function confirmStageAdvance(): Promise<void> {
             {{ monthLabel }}
           </p>
           <p class="mt-2 text-xs text-white/80">
-            {{ isAdmin ? 'Bu ay firma hak edişi' : 'Bu ay kazandığınız' }}
+            {{ isAdmin ? 'Company earnings this month' : 'Your earnings this month' }}
           </p>
           <p class="mt-1 text-3xl font-bold">
             {{ formatCurrency(stats.earnings.thisMonth) }}
           </p>
           <div class="mt-4 h-px bg-white/20" />
           <p class="mt-3 text-xs text-white/80">
-            Tüm zamanlar
+            All time
           </p>
           <p class="mt-1 text-lg font-semibold">
             {{ formatCurrency(stats.earnings.total) }}
@@ -235,13 +235,13 @@ async function confirmStageAdvance(): Promise<void> {
           <header class="mb-4 flex items-center justify-between">
             <div>
               <h2 class="text-sm font-semibold text-slate-900">
-                {{ isAdmin ? 'Son İşlemler' : 'Aksiyon Bekleyen İşlemler' }}
+                {{ isAdmin ? 'Recent transactions' : 'Needs your attention' }}
               </h2>
               <p class="text-xs text-slate-500">
                 {{
                   isAdmin
-                    ? 'Sisteme eklenen en son 5 işlem.'
-                    : 'Sizin tarafınızdan takip edilen, henüz tamamlanmamış işlemler.'
+                    ? 'The 5 most recently created transactions.'
+                    : 'Transactions you own that are not yet completed.'
                 }}
               </p>
             </div>
@@ -253,7 +253,7 @@ async function confirmStageAdvance(): Promise<void> {
               v-if="activeAssignments.length === 0"
               class="rounded-md border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500"
             >
-              Harika! Şu anda aktif bir işleminiz yok.
+              All caught up — no active transactions right now.
             </div>
             <ul v-else class="divide-y divide-slate-100">
               <li
@@ -286,7 +286,7 @@ async function confirmStageAdvance(): Promise<void> {
                   class="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
                   @click="requestStageAdvance(transaction)"
                 >
-                  İlerlet
+                  Advance
                 </button>
               </li>
             </ul>
@@ -298,7 +298,7 @@ async function confirmStageAdvance(): Promise<void> {
               v-if="stats.recent.length === 0"
               class="rounded-md border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500"
             >
-              Henüz kayıtlı işlem yok.
+              No transactions have been recorded yet.
             </div>
             <ul v-else class="divide-y divide-slate-100">
               <li
@@ -338,10 +338,10 @@ async function confirmStageAdvance(): Promise<void> {
         >
           <header class="mb-4">
             <h2 class="text-sm font-semibold text-slate-900">
-              En Çok Kazandıran Danışmanlar
+              Top earning agents
             </h2>
             <p class="text-xs text-slate-500">
-              Tamamlanan işlemlerdeki toplam hak edişe göre.
+              Ranked by total earnings from completed transactions.
             </p>
           </header>
 
@@ -349,7 +349,7 @@ async function confirmStageAdvance(): Promise<void> {
             v-if="stats.topAgents.length === 0"
             class="rounded-md border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500"
           >
-            Henüz tamamlanmış işlem yok.
+            No completed transactions yet.
           </div>
           <ol v-else class="space-y-3">
             <li
@@ -376,7 +376,7 @@ async function confirmStageAdvance(): Promise<void> {
                   {{ agent.name }}
                 </p>
                 <p class="text-xs text-slate-500">
-                  {{ agent.completedCount }} tamamlanmış işlem
+                  {{ agent.completedCount }} completed transaction{{ agent.completedCount === 1 ? '' : 's' }}
                 </p>
               </div>
               <p class="whitespace-nowrap text-sm font-semibold text-emerald-600">

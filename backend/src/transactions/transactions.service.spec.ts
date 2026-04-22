@@ -56,13 +56,13 @@ describe('TransactionsService', () => {
   const admin: AuthenticatedUser = {
     userId: new Types.ObjectId().toHexString(),
     name: 'Admin',
-    email: 'admin@firma.com',
+    email: 'admin@company.com',
     role: UserRole.ADMIN,
   };
   const agentA: AuthenticatedUser = {
     userId: new Types.ObjectId().toHexString(),
     name: 'Agent A',
-    email: 'agentA@firma.com',
+    email: 'agentA@company.com',
     role: UserRole.AGENT,
   };
   const otherAgentId = new Types.ObjectId().toHexString();
@@ -92,7 +92,7 @@ describe('TransactionsService', () => {
 
   describe('create', () => {
     const baseDto = {
-      title: 'Test işlemi',
+      title: 'Test transaction',
       totalFee: 100_000,
       listingAgent: agentA.userId,
       sellingAgent: otherAgentId,
@@ -400,7 +400,7 @@ describe('TransactionsService', () => {
           {
             agentId: 'abc',
             name: 'Ahmet',
-            email: 'a@firma.com',
+            email: 'a@company.com',
             completedCount: 1,
             totalCut: 25_000,
           },

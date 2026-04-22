@@ -34,8 +34,8 @@ async function handleSubmit(): Promise<void> {
   <div class="flex min-h-screen items-center justify-center bg-slate-50 px-4">
     <div class="w-full max-w-md">
       <div class="mb-8 text-center">
-        <h1 class="text-2xl font-bold text-slate-900">Emlak Komisyon</h1>
-        <p class="mt-1 text-sm text-slate-500">İşlem yönetim paneline giriş</p>
+        <h1 class="text-2xl font-bold text-slate-900">Estate Commission</h1>
+        <p class="mt-1 text-sm text-slate-500">Sign in to the transaction console</p>
       </div>
 
       <form
@@ -44,7 +44,7 @@ async function handleSubmit(): Promise<void> {
       >
         <div>
           <label for="email" class="mb-1 block text-xs font-medium text-slate-700">
-            E-posta
+            Email
           </label>
           <input
             id="email"
@@ -53,13 +53,13 @@ async function handleSubmit(): Promise<void> {
             required
             autocomplete="email"
             class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-            placeholder="ornek@firma.com"
+            placeholder="you@company.com"
           >
         </div>
 
         <div>
           <label for="password" class="mb-1 block text-xs font-medium text-slate-700">
-            Şifre
+            Password
           </label>
           <input
             id="password"
@@ -84,7 +84,7 @@ async function handleSubmit(): Promise<void> {
           :disabled="isSubmitting"
           class="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-indigo-400"
         >
-          {{ isSubmitting ? 'Giriş yapılıyor...' : 'Giriş Yap' }}
+          {{ isSubmitting ? 'Signing in...' : 'Sign in' }}
         </button>
       </form>
     </div>

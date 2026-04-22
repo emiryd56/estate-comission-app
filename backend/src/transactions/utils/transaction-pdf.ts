@@ -21,10 +21,10 @@ interface StageColor {
 }
 
 const STAGE_LABELS: Readonly<Record<TransactionStage, string>> = {
-  [TransactionStage.AGREEMENT]: 'Anlaşma',
-  [TransactionStage.EARNEST_MONEY]: 'Kaparo',
-  [TransactionStage.TITLE_DEED]: 'Tapu',
-  [TransactionStage.COMPLETED]: 'Tamamlandı',
+  [TransactionStage.AGREEMENT]: 'Agreement',
+  [TransactionStage.EARNEST_MONEY]: 'Earnest money',
+  [TransactionStage.TITLE_DEED]: 'Title deed',
+  [TransactionStage.COMPLETED]: 'Completed',
 };
 
 const STAGE_COLORS: Readonly<Record<TransactionStage, StageColor>> = {
@@ -42,9 +42,11 @@ const DIVIDER_COLOR = '#e2e8f0';
 const TEXT_COLOR = '#0f172a';
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('tr-TR', {
+  return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: 'TRY',
+    currencyDisplay: 'code',
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
 }
@@ -57,7 +59,7 @@ function formatDate(value: Date | string | undefined | null): string {
   if (Number.isNaN(date.getTime())) {
     return '-';
   }
-  return new Intl.DateTimeFormat('tr-TR', {
+  return new Intl.DateTimeFormat('en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date);
@@ -218,8 +220,8 @@ export async function buildTransactionPdf(
     size: 'A4',
     margin: PAGE_MARGIN,
     info: {
-      Title: `İşlem Raporu - ${transaction.title}`,
-      Author: 'Emlak Komisyon',
+      Title: `Transaction Report - ${transaction.title}`,
+      Author: 'Estate Commission',
       Subject: 'Transaction Report',
     },
   });
@@ -238,12 +240,12 @@ export async function buildTransactionPdf(
     .fillColor(BRAND_COLOR)
     .font(FONT_BOLD)
     .fontSize(20)
-    .text('EMLAK KOMİSYON', PAGE_MARGIN, PAGE_MARGIN);
+    .text('ESTATE COMMISSION', PAGE_MARGIN, PAGE_MARGIN);
   doc
     .fillColor(MUTED_COLOR)
     .font(FONT_REGULAR)
     .fontSize(10)
-    .text('İşlem Raporu', PAGE_MARGIN, doc.y + 2);
+    .text('Transaction Report', PAGE_MARGIN, doc.y + 2);
   const headerBottomY = doc.y + 10;
   drawDivider(doc, headerBottomY);
   doc.y = headerBottomY + 14;
@@ -258,7 +260,7 @@ export async function buildTransactionPdf(
     .fillColor(MUTED_COLOR)
     .font(FONT_REGULAR)
     .fontSize(9)
-    .text(`İşlem No: ${id}`, PAGE_MARGIN, doc.y);
+    .text(`Transaction ID: ${id}`, PAGE_MARGIN, doc.y);
   doc.moveDown(0.5);
 
   const badgeY = doc.y;
@@ -266,46 +268,46 @@ export async function buildTransactionPdf(
   doc.y = badgeY + 26;
 
   doc.moveDown(0.3);
-  drawKeyValue(doc, 'Oluşturma Tarihi', formatDate(createdAt));
-  drawKeyValue(doc, 'Son Güncelleme', formatDate(updatedAt));
-  drawKeyValue(doc, 'Toplam Komisyon', formatCurrency(transaction.totalFee), {
+  drawKeyValue(doc, 'Created', formatDate(createdAt));
+  drawKeyValue(doc, 'Last updated', formatDate(updatedAt));
+  drawKeyValue(doc, 'Total commission', formatCurrency(transaction.totalFee), {
     bold: true,
   });
   doc.moveDown(0.6);
   drawDivider(doc, doc.y);
   doc.moveDown(0.6);
 
-  drawSectionTitle(doc, 'Danışmanlar');
+  drawSectionTitle(doc, 'Agents');
   drawKeyValue(
     doc,
-    'İlan Danışmanı',
+    'Listing agent',
     renderAgent(transaction.listingAgent, '-'),
     { bold: true },
   );
-  drawKeyValue(doc, '   E-posta', agentEmail(transaction.listingAgent));
+  drawKeyValue(doc, '   Email', agentEmail(transaction.listingAgent));
   doc.moveDown(0.2);
   drawKeyValue(
     doc,
-    'Satış Danışmanı',
+    'Selling agent',
     renderAgent(transaction.sellingAgent, '-'),
     { bold: true },
   );
-  drawKeyValue(doc, '   E-posta', agentEmail(transaction.sellingAgent));
+  drawKeyValue(doc, '   Email', agentEmail(transaction.sellingAgent));
   doc.moveDown(0.6);
   drawDivider(doc, doc.y);
   doc.moveDown(0.6);
 
-  drawSectionTitle(doc, 'Aşama Geçmişi');
+  drawSectionTitle(doc, 'Stage history');
   drawTableHeader(doc, [
     { label: '#', width: 40 },
-    { label: 'Aşama', width: 180 },
-    { label: 'Tarih', width: CONTENT_WIDTH - 220, align: 'right' },
+    { label: 'Stage', width: 180 },
+    { label: 'Date', width: CONTENT_WIDTH - 220, align: 'right' },
   ]);
   const history = transaction.stageHistory ?? [];
   if (history.length === 0) {
     drawTableRow(doc, [
       { value: '-', width: 40 },
-      { value: 'Kayıt yok', width: 180 },
+      { value: 'No records', width: 180 },
       { value: '-', width: CONTENT_WIDTH - 220, align: 'right' },
     ]);
   } else {
@@ -329,14 +331,14 @@ export async function buildTransactionPdf(
   drawDivider(doc, doc.y);
   doc.moveDown(0.6);
 
-  drawSectionTitle(doc, 'Finansal Döküm');
+  drawSectionTitle(doc, 'Commission breakdown');
   const isCompleted = transaction.stage === TransactionStage.COMPLETED;
   const fb = transaction.financialBreakdown;
 
   drawTableHeader(doc, [
-    { label: 'Kalem', width: CONTENT_WIDTH - 220 },
-    { label: 'Tutar', width: 120, align: 'right' },
-    { label: 'Oran', width: 100, align: 'right' },
+    { label: 'Item', width: CONTENT_WIDTH - 220 },
+    { label: 'Amount', width: 120, align: 'right' },
+    { label: 'Share', width: 100, align: 'right' },
   ]);
 
   const totalFee = transaction.totalFee;
@@ -344,27 +346,27 @@ export async function buildTransactionPdf(
     if (totalFee === 0 || value === undefined) {
       return '-';
     }
-    return `%${Math.round((value / totalFee) * 100)}`;
+    return `${Math.round((value / totalFee) * 100)}%`;
   };
 
   drawTableRow(
     doc,
     [
-      { value: 'Toplam Komisyon', width: CONTENT_WIDTH - 220, bold: true },
+      { value: 'Total commission', width: CONTENT_WIDTH - 220, bold: true },
       {
         value: formatCurrency(totalFee),
         width: 120,
         align: 'right',
         bold: true,
       },
-      { value: '%100', width: 100, align: 'right' },
+      { value: '100%', width: 100, align: 'right' },
     ],
     { zebra: true },
   );
 
   if (isCompleted && fb) {
     drawTableRow(doc, [
-      { value: 'Şirket Payı', width: CONTENT_WIDTH - 220 },
+      { value: 'Company share', width: CONTENT_WIDTH - 220 },
       {
         value: formatCurrency(fb.companyCut ?? 0),
         width: 120,
@@ -376,7 +378,7 @@ export async function buildTransactionPdf(
       doc,
       [
         {
-          value: `İlan Danışmanı Payı (${renderAgent(transaction.listingAgent, '-')})`,
+          value: `Listing agent share (${renderAgent(transaction.listingAgent, '-')})`,
           width: CONTENT_WIDTH - 220,
         },
         {
@@ -390,7 +392,7 @@ export async function buildTransactionPdf(
     );
     drawTableRow(doc, [
       {
-        value: `Satış Danışmanı Payı (${renderAgent(transaction.sellingAgent, '-')})`,
+        value: `Selling agent share (${renderAgent(transaction.sellingAgent, '-')})`,
         width: CONTENT_WIDTH - 220,
       },
       {
@@ -403,7 +405,8 @@ export async function buildTransactionPdf(
   } else {
     drawTableRow(doc, [
       {
-        value: 'İşlem henüz tamamlanmadığı için hak ediş hesaplanmamıştır.',
+        value:
+          'Commission split is calculated once the transaction is completed.',
         width: CONTENT_WIDTH,
       },
     ]);
@@ -418,7 +421,7 @@ export async function buildTransactionPdf(
     .font(FONT_REGULAR)
     .fontSize(8)
     .text(
-      `Bu rapor ${formatDate(new Date())} tarihinde otomatik oluşturulmuştur.`,
+      `This report was generated automatically on ${formatDate(new Date())}.`,
       PAGE_MARGIN,
       doc.y,
       { width: CONTENT_WIDTH, align: 'center' },
@@ -443,6 +446,6 @@ export function buildPdfFilename(transaction: TransactionDocument): string {
     normalized
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
-      .slice(0, 40) || 'islem';
+      .slice(0, 40) || 'transaction';
   return `${slug}-${id}.pdf`;
 }

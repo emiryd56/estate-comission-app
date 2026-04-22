@@ -84,11 +84,11 @@ async function handleSubmit(): Promise<void> {
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
-        Panoya Dön
+        Back to dashboard
       </NuxtLink>
-      <h1 class="text-2xl font-bold text-slate-900">Yeni İşlem Oluştur</h1>
+      <h1 class="text-2xl font-bold text-slate-900">New transaction</h1>
       <p class="mt-1 text-sm text-slate-500">
-        İlan ve satış danışmanlarını seçerek yeni bir komisyon süreci başlatın.
+        Start a new commission flow by selecting the listing and selling agents.
       </p>
     </header>
 
@@ -98,7 +98,7 @@ async function handleSubmit(): Promise<void> {
     >
       <div>
         <label for="title" class="mb-1 block text-xs font-medium text-slate-700">
-          İşlem Başlığı
+          Title
         </label>
         <input
           id="title"
@@ -108,13 +108,13 @@ async function handleSubmit(): Promise<void> {
           minlength="3"
           maxlength="160"
           class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-          placeholder="Kadıköy Moda 3+1 Daire Satışı"
+          placeholder="Sunset Park 2BR sale"
         >
       </div>
 
       <div>
         <label for="totalFee" class="mb-1 block text-xs font-medium text-slate-700">
-          Toplam Komisyon (TL)
+          Total commission (TRY)
         </label>
         <input
           id="totalFee"
@@ -131,28 +131,28 @@ async function handleSubmit(): Promise<void> {
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <label class="mb-1 block text-xs font-medium text-slate-700">
-            İlan Danışmanı
+            Listing agent
           </label>
           <SearchableSelect
             v-model="listingAgentValue"
             :options="agentOptions"
-            placeholder="Danışman seçin"
-            search-placeholder="Danışman ara..."
-            empty-text="Eşleşen danışman bulunamadı"
+            placeholder="Select an agent"
+            search-placeholder="Search agents..."
+            empty-text="No matching agent found"
             :allow-clear="false"
           />
         </div>
 
         <div>
           <label class="mb-1 block text-xs font-medium text-slate-700">
-            Satış Danışmanı
+            Selling agent
           </label>
           <SearchableSelect
             v-model="sellingAgentValue"
             :options="agentOptions"
-            placeholder="Danışman seçin"
-            search-placeholder="Danışman ara..."
-            empty-text="Eşleşen danışman bulunamadı"
+            placeholder="Select an agent"
+            search-placeholder="Search agents..."
+            empty-text="No matching agent found"
             :allow-clear="false"
           />
         </div>
@@ -162,16 +162,16 @@ async function handleSubmit(): Promise<void> {
         v-if="isSameAgent"
         class="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800"
       >
-        Aynı danışman seçildi. Tamamlandığında danışman payının tamamı (%50) bu kişiye verilir.
+        The same agent is on both sides — the full agent share (50%) will go to this person on completion.
       </div>
 
       <div
         v-if="agents.length === 0 && !userStore.loading"
         class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
       >
-        Henüz danışman yok. Önce
-        <NuxtLink to="/users" class="font-semibold underline">Danışmanlar</NuxtLink>
-        sayfasından bir danışman ekleyin.
+        No agents yet. Add one first from the
+        <NuxtLink to="/users" class="font-semibold underline">Agents</NuxtLink>
+        page.
       </div>
 
       <div
@@ -186,14 +186,14 @@ async function handleSubmit(): Promise<void> {
           to="/"
           class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
         >
-          İptal
+          Cancel
         </NuxtLink>
         <button
           type="submit"
           :disabled="!canSubmit || isSubmitting"
           class="rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-indigo-400"
         >
-          {{ isSubmitting ? 'Oluşturuluyor...' : 'İşlemi Oluştur' }}
+          {{ isSubmitting ? 'Creating...' : 'Create transaction' }}
         </button>
       </div>
     </form>

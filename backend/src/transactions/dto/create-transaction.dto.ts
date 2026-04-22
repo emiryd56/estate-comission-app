@@ -10,7 +10,7 @@ import {
 
 export class CreateTransactionDto {
   @ApiProperty({
-    example: 'Kadıköy 3+1 Satış',
+    example: 'Sunset Park 2BR sale',
     minLength: 3,
     maxLength: 160,
   })

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { TransactionStage } from '~/types'
 import type { Transaction } from '~/types'
+import { formatCurrency } from '~/utils/currency'
 import { STAGE_BADGE_CLASS, STAGE_LABELS } from '~/utils/stage'
 
 interface Props {
@@ -25,17 +26,17 @@ const isFinalTransition = computed(
 )
 
 const title = computed(() =>
-  isFinalTransition.value ? 'İşlemi tamamla' : 'Aşamayı ilerlet',
+  isFinalTransition.value ? 'Complete transaction' : 'Advance stage',
 )
 
 const description = computed(() =>
   isFinalTransition.value
-    ? 'Tamamlandı aşamasına geçtikten sonra finansal döküm hesaplanacak ve kilitlenecektir.'
-    : 'Bu işlemin aşaması ilerletilecek. Aşama geçişleri geri alınamaz.',
+    ? 'Once moved to Completed, the financial breakdown is calculated and locked.'
+    : 'This transaction will move to its next stage. Stage changes cannot be undone.',
 )
 
 const confirmLabel = computed(() =>
-  isFinalTransition.value ? 'Tamamla' : 'Evet, ilerlet',
+  isFinalTransition.value ? 'Complete' : 'Yes, advance',
 )
 
 const variant = computed<'primary' | 'success'>(() =>
@@ -57,16 +58,17 @@ function handleConfirm(): void {
     :title="title"
     :description="description"
     :confirm-label="confirmLabel"
-    cancel-label="Vazgeç"
+    cancel-label="Cancel"
     :variant="variant"
     :loading="loading"
     persistent
     @update:model-value="close"
+    @confirm="handleConfirm"
   >
     <div v-if="transaction && nextStage" class="space-y-4">
       <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
         <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-          İşlem
+          Transaction
         </p>
         <p class="mt-1 truncate text-sm font-semibold text-slate-900">
           {{ transaction.title }}
@@ -76,7 +78,7 @@ function handleConfirm(): void {
       <div class="flex items-center justify-between gap-3">
         <div class="flex-1">
           <p class="text-xs uppercase tracking-wide text-slate-400">
-            Mevcut aşama
+            Current stage
           </p>
           <span
             class="mt-1 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset"
@@ -98,7 +100,7 @@ function handleConfirm(): void {
 
         <div class="flex-1 text-right">
           <p class="text-xs uppercase tracking-wide text-slate-400">
-            Yeni aşama
+            Next stage
           </p>
           <span
             class="mt-1 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset"
@@ -117,8 +119,9 @@ function handleConfirm(): void {
           <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <span>
-          Komisyon dağılımı <strong>{{ transaction.totalFee.toLocaleString('tr-TR') }} ₺</strong>
-          üzerinden anlık olarak hesaplanacak ve değiştirilemeyecek.
+          Commission split will be calculated instantly on
+          <strong>{{ formatCurrency(transaction.totalFee) }}</strong>
+          and cannot be changed afterwards.
         </span>
       </div>
     </div>

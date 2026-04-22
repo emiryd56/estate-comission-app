@@ -36,7 +36,7 @@ async function handleSubmit(): Promise<void> {
   isSubmitting.value = true
   try {
     await userStore.createUser({ ...form })
-    successMessage.value = `${form.name} başarıyla eklendi.`
+    successMessage.value = `${form.name} was added successfully.`
     resetForm()
   } catch {
     // store.error already contains the message
@@ -56,7 +56,7 @@ function roleBadgeClass(role: User['role']): string {
 function roleLabel(role: User['role']): string {
   const map: Record<UserRole, string> = {
     [UserRole.ADMIN]: 'Admin',
-    [UserRole.AGENT]: 'Danışman',
+    [UserRole.AGENT]: 'Agent',
   }
   return map[role]
 }
@@ -65,9 +65,9 @@ function roleLabel(role: User['role']): string {
 <template>
   <div>
     <header class="mb-8">
-      <h1 class="text-2xl font-bold text-slate-900">Danışmanlar</h1>
+      <h1 class="text-2xl font-bold text-slate-900">Agents</h1>
       <p class="mt-1 text-sm text-slate-500">
-        Sistemdeki admin ve danışmanları buradan yönetin.
+        Manage the admins and agents in your office.
       </p>
     </header>
 
@@ -75,13 +75,13 @@ function roleLabel(role: User['role']): string {
       <section class="lg:col-span-1">
         <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <h2 class="mb-4 text-base font-semibold text-slate-900">
-            Yeni Danışman Ekle
+            Add a new agent
           </h2>
 
           <form class="space-y-4" @submit.prevent="handleSubmit">
             <div>
               <label for="name" class="mb-1 block text-xs font-medium text-slate-700">
-                Ad Soyad
+                Full name
               </label>
               <input
                 id="name"
@@ -91,13 +91,13 @@ function roleLabel(role: User['role']): string {
                 minlength="2"
                 maxlength="80"
                 class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                placeholder="Ali Yılmaz"
+                placeholder="Alex Morgan"
               >
             </div>
 
             <div>
               <label for="email" class="mb-1 block text-xs font-medium text-slate-700">
-                E-posta
+                Email
               </label>
               <input
                 id="email"
@@ -105,13 +105,13 @@ function roleLabel(role: User['role']): string {
                 type="email"
                 required
                 class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                placeholder="ali@firma.com"
+                placeholder="alex@company.com"
               >
             </div>
 
             <div>
               <label for="password" class="mb-1 block text-xs font-medium text-slate-700">
-                Şifre
+                Password
               </label>
               <input
                 id="password"
@@ -120,20 +120,20 @@ function roleLabel(role: User['role']): string {
                 required
                 minlength="6"
                 class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                placeholder="En az 6 karakter"
+                placeholder="At least 6 characters"
               >
             </div>
 
             <div>
               <label for="role" class="mb-1 block text-xs font-medium text-slate-700">
-                Rol
+                Role
               </label>
               <select
                 id="role"
                 v-model="form.role"
                 class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
               >
-                <option :value="UserRole.AGENT">Danışman</option>
+                <option :value="UserRole.AGENT">Agent</option>
                 <option :value="UserRole.ADMIN">Admin</option>
               </select>
             </div>
@@ -157,7 +157,7 @@ function roleLabel(role: User['role']): string {
               :disabled="isSubmitting"
               class="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-indigo-400"
             >
-              {{ isSubmitting ? 'Kaydediliyor...' : 'Kaydet' }}
+              {{ isSubmitting ? 'Saving...' : 'Save' }}
             </button>
           </form>
         </div>
@@ -167,7 +167,7 @@ function roleLabel(role: User['role']): string {
         <div class="rounded-lg border border-slate-200 bg-white shadow-sm">
           <header class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
             <h2 class="text-base font-semibold text-slate-900">
-              Mevcut Danışmanlar
+              Current agents
             </h2>
             <span
               class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700"
@@ -177,11 +177,11 @@ function roleLabel(role: User['role']): string {
           </header>
 
           <div v-if="userStore.loading && !hasUsers" class="p-6 text-sm text-slate-500">
-            Yükleniyor...
+            Loading...
           </div>
 
           <div v-else-if="!hasUsers" class="p-6 text-sm text-slate-500">
-            Henüz danışman eklenmemiş.
+            No agents have been added yet.
           </div>
 
           <ul v-else class="divide-y divide-slate-200">

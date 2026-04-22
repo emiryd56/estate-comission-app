@@ -9,7 +9,7 @@ function toDate(value: DateLike): Date | null {
 export function formatDateTime(value: DateLike, fallback = '—'): string {
   const date = toDate(value)
   if (!date) return fallback
-  return new Intl.DateTimeFormat('tr-TR', {
+  return new Intl.DateTimeFormat('en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)
@@ -18,7 +18,7 @@ export function formatDateTime(value: DateLike, fallback = '—'): string {
 export function formatShortDate(value: DateLike, fallback = '—'): string {
   const date = toDate(value)
   if (!date) return fallback
-  return new Intl.DateTimeFormat('tr-TR', {
+  return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
     month: 'short',
   }).format(date)

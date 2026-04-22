@@ -1,10 +1,10 @@
 import { TransactionStage } from '~/types'
 
 export const STAGE_LABELS: Readonly<Record<TransactionStage, string>> = {
-  [TransactionStage.AGREEMENT]: 'Anlaşma',
-  [TransactionStage.EARNEST_MONEY]: 'Kaparo',
-  [TransactionStage.TITLE_DEED]: 'Tapu',
-  [TransactionStage.COMPLETED]: 'Tamamlandı',
+  [TransactionStage.AGREEMENT]: 'Agreement',
+  [TransactionStage.EARNEST_MONEY]: 'Earnest money',
+  [TransactionStage.TITLE_DEED]: 'Title deed',
+  [TransactionStage.COMPLETED]: 'Completed',
 }
 
 export const STAGE_ORDER: readonly TransactionStage[] = [
@@ -29,12 +29,4 @@ export function getNextStage(
     return null
   }
   return STAGE_ORDER[index + 1]
-}
-
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency: 'TRY',
-    maximumFractionDigits: 0,
-  }).format(value)
 }

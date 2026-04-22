@@ -3,8 +3,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { TransactionStage } from '~/types'
 import type { AdvancedFilters, Transaction } from '~/types'
 import type { SearchableSelectOption } from '~/components/SearchableSelect.vue'
+import { formatCurrency } from '~/utils/currency'
 import {
-  formatCurrency,
   getNextStage,
   STAGE_BADGE_CLASS,
   STAGE_LABELS,
@@ -155,7 +155,7 @@ async function confirmStageAdvance(): Promise<void> {
     stageDialogOpen.value = false
     pendingTransaction.value = null
   } catch {
-    // error banner zaten güncellendi
+    // error banner already updated by the store
   } finally {
     stageDialogLoading.value = false
   }
@@ -196,19 +196,19 @@ function buildFiltersFromDraft(): AdvancedFilters | null {
   const agentId = advancedDraft.agentId || null
 
   if (min !== null && min < 0) {
-    advancedError.value = 'Min. fiyat 0 veya daha büyük olmalı'
+    advancedError.value = 'Min. price must be 0 or greater.'
     return null
   }
   if (max !== null && max < 0) {
-    advancedError.value = 'Maks. fiyat 0 veya daha büyük olmalı'
+    advancedError.value = 'Max. price must be 0 or greater.'
     return null
   }
   if (min !== null && max !== null && min > max) {
-    advancedError.value = 'Min. fiyat, Maks. fiyattan büyük olamaz'
+    advancedError.value = 'Min. price cannot be greater than Max. price.'
     return null
   }
   if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-    advancedError.value = 'Başlangıç tarihi, bitiş tarihinden sonra olamaz'
+    advancedError.value = 'Start date cannot be after end date.'
     return null
   }
 
@@ -250,18 +250,18 @@ async function resetAdvancedFilters(): Promise<void> {
   <div>
     <header class="mb-6 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <h1 class="text-2xl font-bold text-slate-900">İşlemler</h1>
+        <h1 class="text-2xl font-bold text-slate-900">Transactions</h1>
         <span
           class="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-800"
         >
-          {{ total }} Kayıt
+          {{ total }} record{{ total === 1 ? '' : 's' }}
         </span>
       </div>
       <NuxtLink
         to="/transactions/new"
         class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
       >
-        + Yeni İşlem
+        + New transaction
       </NuxtLink>
     </header>
 
@@ -269,7 +269,7 @@ async function resetAdvancedFilters(): Promise<void> {
       <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
         <div class="flex-1">
           <label for="search" class="mb-1 block text-xs font-medium text-slate-600">
-            İşlem Ara
+            Search transactions
           </label>
           <div class="relative">
             <svg
@@ -285,7 +285,7 @@ async function resetAdvancedFilters(): Promise<void> {
               id="search"
               v-model="searchInput"
               type="search"
-              placeholder="İşlem başlığına göre ara..."
+              placeholder="Search by transaction title..."
               class="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
             >
           </div>
@@ -293,14 +293,14 @@ async function resetAdvancedFilters(): Promise<void> {
 
         <div class="sm:w-48">
           <label for="stage" class="mb-1 block text-xs font-medium text-slate-600">
-            Aşama Seç
+            Stage
           </label>
           <select
             id="stage"
             v-model="stageFilter"
             class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
           >
-            <option value="">Tüm aşamalar</option>
+            <option value="">All stages</option>
             <option v-for="stage in STAGE_ORDER" :key="stage" :value="stage">
               {{ STAGE_LABELS[stage] }}
             </option>
@@ -330,7 +330,7 @@ async function resetAdvancedFilters(): Promise<void> {
               d="M3 4h18M6 8h12M10 12h4M8 16h8"
             />
           </svg>
-          Gelişmiş Filtreleme
+          Advanced filters
           <span
             v-if="advancedFilterCount > 0"
             class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white"
@@ -355,7 +355,7 @@ async function resetAdvancedFilters(): Promise<void> {
           class="h-9 self-end rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
           @click="clearFilters"
         >
-          Tümünü Temizle
+          Clear all
         </button>
       </div>
 
@@ -366,7 +366,7 @@ async function resetAdvancedFilters(): Promise<void> {
         <div class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           <div>
             <label class="mb-1 block text-xs font-medium text-slate-600">
-              Fiyat Aralığı (₺)
+              Commission range (TRY)
             </label>
             <div class="flex items-center gap-2">
               <input
@@ -383,7 +383,7 @@ async function resetAdvancedFilters(): Promise<void> {
                 type="number"
                 min="0"
                 step="1000"
-                placeholder="Maks"
+                placeholder="Max"
                 class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
               >
             </div>
@@ -391,7 +391,7 @@ async function resetAdvancedFilters(): Promise<void> {
 
           <div>
             <label class="mb-1 block text-xs font-medium text-slate-600">
-              Tarih Aralığı
+              Date range
             </label>
             <div class="flex items-center gap-2">
               <input
@@ -410,14 +410,14 @@ async function resetAdvancedFilters(): Promise<void> {
 
           <div v-if="authStore.isAdmin">
             <label class="mb-1 block text-xs font-medium text-slate-600">
-              Danışman
+              Agent
             </label>
             <SearchableSelect
               v-model="selectedAgentId"
               :options="agentOptions"
-              placeholder="Tüm danışmanlar"
-              search-placeholder="Danışman ara (isim / e-posta)..."
-              empty-text="Eşleşen danışman bulunamadı"
+              placeholder="All agents"
+              search-placeholder="Search by name or email..."
+              empty-text="No matching agent found"
             />
           </div>
         </div>
@@ -435,14 +435,14 @@ async function resetAdvancedFilters(): Promise<void> {
             class="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
             @click="resetAdvancedFilters"
           >
-            Sıfırla
+            Reset
           </button>
           <button
             type="button"
             class="rounded-md bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-700"
             @click="applyAdvancedFilters"
           >
-            Uygula
+            Apply
           </button>
         </div>
       </div>
@@ -460,34 +460,34 @@ async function resetAdvancedFilters(): Promise<void> {
         <thead class="bg-slate-50">
           <tr>
             <th scope="col" class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              İşlem Adı
+              Title
             </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              İlan Danışmanı
+              Listing agent
             </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Satış Danışmanı
+              Selling agent
             </th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Toplam Komisyon
+              Total commission
             </th>
             <th scope="col" class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Aşama
+              Stage
             </th>
             <th scope="col" class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-              İşlem
+              Actions
             </th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 bg-white">
           <tr v-if="isLoading && rows.length === 0">
             <td colspan="6" class="px-6 py-10 text-center text-sm text-slate-500">
-              Yükleniyor...
+              Loading...
             </td>
           </tr>
           <tr v-else-if="rows.length === 0">
             <td colspan="6" class="px-6 py-10 text-center text-sm text-slate-500">
-              {{ hasActiveFilters ? 'Filtreye uyan işlem bulunamadı.' : 'Henüz işlem yok.' }}
+              {{ hasActiveFilters ? 'No transactions match the filters.' : 'No transactions yet.' }}
             </td>
           </tr>
           <tr
@@ -530,13 +530,13 @@ async function resetAdvancedFilters(): Promise<void> {
                   class="inline-flex h-8 items-center whitespace-nowrap rounded-md bg-indigo-600 px-3 text-xs font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
                   @click="requestStageAdvance(transaction)"
                 >
-                  Sonraki Aşama
+                  Advance stage
                 </button>
                 <NuxtLink
                   :to="`/transactions/${transaction._id}`"
                   class="inline-flex h-8 items-center whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100"
                 >
-                  Detay
+                  Details
                 </NuxtLink>
               </div>
             </td>
@@ -554,7 +554,7 @@ async function resetAdvancedFilters(): Promise<void> {
           <span class="font-semibold">{{ pageEnd }}</span>
           /
           <span class="font-semibold">{{ total }}</span>
-          kayıt
+          records
         </p>
         <nav class="flex items-center gap-1">
           <button
@@ -563,10 +563,10 @@ async function resetAdvancedFilters(): Promise<void> {
             class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
             @click="goToPage(currentPage - 1)"
           >
-            Önceki
+            Previous
           </button>
           <span class="px-3 text-xs text-slate-600">
-            Sayfa <strong>{{ currentPage }}</strong> / {{ totalPages }}
+            Page <strong>{{ currentPage }}</strong> of {{ totalPages }}
           </span>
           <button
             type="button"
@@ -574,7 +574,7 @@ async function resetAdvancedFilters(): Promise<void> {
             class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
             @click="goToPage(currentPage + 1)"
           >
-            Sonraki
+            Next
           </button>
         </nav>
       </footer>
