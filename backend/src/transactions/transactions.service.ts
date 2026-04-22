@@ -202,7 +202,7 @@ export class TransactionsService {
       .findOneAndUpdate(
         { _id: new Types.ObjectId(id), stage: current.stage },
         update,
-        { new: true },
+        { returnDocument: 'after' },
       )
       .populate('listingAgent', AGENT_POPULATE_FIELDS)
       .populate('sellingAgent', AGENT_POPULATE_FIELDS)

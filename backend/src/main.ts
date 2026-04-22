@@ -52,7 +52,7 @@ async function bootstrap(): Promise<void> {
 
   if (shouldExposeSwagger(config)) {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('Emlak Komisyon API')
+      .setTitle('Estate Commission API')
       .setDescription(
         'Estate agency commission tracking API built with NestJS + MongoDB Atlas.',
       )
